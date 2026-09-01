@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Музыкальный Тренажер</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg-color: var(--tg-theme-bg-color, #121212);
+      --text-color: var(--tg-theme-text-color, #ffffff);
+      --btn-color: var(--tg-theme-button-color, #3390ec);
+      --btn-text-color: var(--tg-theme-button-text-color, #ffffff);
+      --card-bg: var(--tg-theme-secondary-bg-color, #1e1e1e);
+      --accent-color: #4cd964;
+      --error-color: #ff3b30;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 0 0 70px 0;
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    /* Навигационное меню снизу */
+    .nav-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 60px;
+      background: var(--card-bg);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 100;
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 10px;
+      color: #8e8e93;
+      cursor: pointer;
+      flex: 1;
+    }
+
+    .nav-item.active {
+      color: var(--btn-color);
+    }
+
+    .nav-icon {
+      font-size: 20px;
+      margin-bottom: 2px;
+    }
+
+    /* Секции контента */
+    .tab-content {
+      display: none;
+      padding: 20px;
+      max-width: 450px;
+      margin: 0 auto;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .card {
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 16px;
+      text-align: center;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    h2 { margin-top: 0; font-size: 20px; }
+    p { font-size: 14px; opacity: 0.8; line-height: 1.4; }
+
+    .btn {
+      background-color: var(--btn-color);
+      color: var(--btn-text-color);
+      border: none;
+      padding: 12px 18px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 12px;
+      cursor: pointer;
+      width: 100%;
+      margin: 8px 0;
+    }
+
+    .btn:disabled { opacity: 0.5; }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .opt-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-color);
+      padding: 12px 8px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .feedback {
+      margin-top: 12px;
+      font-size: 15px;
+      font-weight: bold;
+      min-height: 20px;
+    }
+
+    .correct { color: var(--accent-color); }
+    .wrong { color: var(--error-color); }
+
+    /* Тюнер / Пение */
+    .pitch-indicator {
+      font-size: 36px;
+      font-weight: bold;
+      margin: 15px 0;
+      color: var(--btn-color);
+    }
+
+    .meter-container {
+      width: 100%;
+      height: 12px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 6px;
+      position: relative;
+      overflow: hidden;
+      margin: 15px 0;
+    }
+
+    .meter-pointer {
+      width: 6px;
+      height: 100%;
+      background: var(--btn-color);
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      transition: left 0.1s ease-out, background 0.2s;
+    }
+
+    /* Энциклопедия */
+    .wiki-item {
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding: 12px 0;
+    }
+    .wiki-item:last-child { border-bottom: none; }
+    .wiki-title { font-weight: bold; font-size: 15px; color: var(--btn-color); }
+    .wiki-desc { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+  </style>
+</head>
+<body>
+
+  <div id="tab-compare" class="tab-content active">
+    <div class="card">
+      <h2>⚖️ Сравнение интервалов</h2>
+      <p>Прослушайте два интервала и определите, какой из них <b>шире</b>.</p>
+      <button class="btn" onclick="playCompare()">▶ Проиграть пару</button>
+      <div class="grid-2">
+        <button class="opt-btn" id="comp1" onclick="checkCompare(1)" disabled>1-й шире</button>
+        <button class="opt-btn" id="comp2" onclick="checkCompare(2)" disabled>2-й шире</button>
+      </div>
+      <div class="feedback" id="fb-compare"></div>
+    </div>
+  </div>
+
+  <div id="tab-identify" class="tab-content">
+    <div class="card">
+      <h2>👂 Определение интервала</h2>
+      <p>Прослушайте интервал и угадайте его название.</p>
+      <button class="btn" onclick="playIdentify()">▶ Проиграть интервал</button>
+      <div class="grid-3" id="identify-options">
+        </div>
+      <div class="feedback" id="fb-identify"></div>
+    </div>
+  </div>
+
+  <div id="tab-sing" class="tab-content">
+    <div class="card">
+      <h2>🎤 Пропевание ноты</h2>
+      <p>Нажмите «Задать ноту», прослушайте эталон и спойте его в микрофон.</p>
+      <button class="btn" onclick="generateTargetNote()">🎵 Задать новую ноту</button>
+      
+      <div class="pitch-indicator" id="targetNoteDisplay">--</div>
+      
+      <div class="meter-container">
+        <div class="meter-pointer" id="meterPointer"></div>
+      </div>
+      
+      <p id="singStatus">Микрофон выключен</p>
+      <button class="btn" id="micBtn" onclick="toggleMic()" style="background:#34c759;">🎤 Включить микрофон</button>
+    </div>
+  </div>
+
+  <div id="tab-wiki" class="tab-content">
+    <div class="card">
+      <h2>📚 Энциклопедия ЭТМ</h2>
+      <p>Краткий справочник по интервалам в полутонах:</p>
+      <div id="wiki-list"></div>
+    </div>
+  </div>
+
+  <div class="nav-bar">
+    <div class="nav-item active" onclick="switchTab('compare', this)">
+      <span class="nav-icon">⚖️</span>
+      <span>Сравнение</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('identify', this)">
+      <span class="nav-icon">👂</span>
+      <span>Слух</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('sing', this)">
+      <span class="nav-icon">🎤</span>
+      <span>Пение</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('wiki', this)">
+      <span class="nav-icon">📚</span>
+      <span>Теория</span>
+    </div>
+  </div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // Таблица интервалов
+    const INTERVALS = [
+      { name: "Малая секунда", semitones: 1 },
+      { name: "Большая секунда", semitones: 2 },
+      { name: "Малая терция", semitones: 3 },
+      { name: "Большая терция", semitones: 4 },
+      { name: "Чистая кварта", semitones: 5 },
+      { name: "Тритон", semitones: 6 },
+      { name: "Чистая квинта", semitones: 7 },
+      { name: "Малая секста", semitones: 8 },
+      { name: "Большая секста", semitones: 9 },
+      { name: "Малая септима", semitones: 10 },
+      { name: "Большая септима", semitones: 11 },
+      { name: "Чистая октава", semitones: 12 }
+    ];
+
+    const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+    // ---------------- Навигация ----------------
+    function switchTab(tabId, el) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById('tab-' + tabId).classList.add('active');
+      el.classList.add('active');
+    }
+
+    // ---------------- Синтез звука ----------------
+    function playTone(freq, start, duration) {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, start);
+      gain.gain.setValueAtTime(0.3, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(start);
+      osc.stop(start + duration);
+    }
+
+    function playInterval(baseFreq, semitones, start) {
+      const freq2 = baseFreq * Math.pow(2, semitones / 12);
+      playTone(baseFreq, start, 0.8);
+      playTone(freq2, start + 0.1, 0.8);
+    }
+
+    // ---------------- 1. Сравнение ----------------
+    let widerIdx = 0;
+    function playCompare() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      document.getElementById('fb-compare').innerText = '';
+      
+      let s1 = Math.floor(Math.random() * 11) + 1;
+      let s2 = Math.floor(Math.random() * 11) + 1;
+      while (s1 === s2) s2 = Math.floor(Math.random() * 11) + 1;
+
+      widerIdx = s1 > s2 ? 1 : 2;
+      const now = audioCtx.currentTime;
+      playInterval(261.63, s1, now);
+      playInterval(261.63, s2, now + 1.2);
+
+      setTimeout(() => {
+        document.getElementById('comp1').disabled = false;
+        document.getElementById('comp2').disabled = false;
+      }, 2000);
+    }
+
+    function checkCompare(ans) {
+      const fb = document.getElementById('fb-compare');
+      if (ans === widerIdx) {
+        fb.innerText = "Правильно! 🎉";
+        fb.className = "feedback correct";
+      } else {
+        fb.innerText = "Неверно ❌";
+        fb.className = "feedback wrong";
+      }
+      document.getElementById('comp1').disabled = true;
+      document.getElementById('comp2').disabled = true;
+    }
+
+    // ---------------- 2. Определение ----------------
+    let currentTargetInterval = null;
+    function playIdentify() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      document.getElementById('fb-identify').innerText = '';
+      
+      currentTargetInterval = INTERVALS[Math.floor(Math.random() * INTERVALS.length)];
+      playInterval(261.63, currentTargetInterval.semitones, audioCtx.currentTime);
+
+      // Генерируем 3 варианта ответа
+      let options = [currentTargetInterval];
+      while (options.length < 3) {
+        let rand = INTERVALS[Math.floor(Math.random() * INTERVALS.length)];
+        if (!options.includes(rand)) options.push(rand);
+      }
+      options.sort(() => Math.random() - 0.5);
+
+      const container = document.getElementById('identify-options');
+      container.innerHTML = '';
+      options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'opt-btn';
+        btn.innerText = opt.name;
+        btn.onclick = () => {
+          const fb = document.getElementById('fb-identify');
+          if (opt.semitones === currentTargetInterval.semitones) {
+            fb.innerText = "Верно! 👏";
+            fb.className = "feedback correct";
+          } else {
+            fb.innerText = `Ошибка! Это ${currentTargetInterval.name}`;
+            fb.className = "feedback wrong";
+          }
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    // ---------------- 3. Пропевание ноты (Микрофон) ----------------
+    let isMicActive = false;
+    let micStream = null;
+    let pitchAnalyser = null;
+    let targetFreq = 261.63; // C4
+
+    function generateTargetNote() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      // Выбираем случайную ноту от C3 до C5
+      const midi = Math.floor(Math.random() * 24) + 48; 
+      targetFreq = 440 * Math.pow(2, (midi - 69) / 12);
+      
+      const noteName = NOTE_NAMES[midi % 12] + Math.floor(midi / 12 - 1);
+      document.getElementById('targetNoteDisplay').innerText = noteName;
+      
+      playTone(targetFreq, audioCtx.currentTime, 1.2);
+    }
+
+    async function toggleMic() {
+      if (isMicActive) {
+        stopMic();
+      } else {
+        try {
+          micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const source = audioCtx.createMediaStreamSource(micStream);
+          pitchAnalyser = audioCtx.createAnalyser();
+          pitchAnalyser.fftSize = 2048;
+          source.connect(pitchAnalyser);
+          
+          isMicActive = true;
+          document.getElementById('micBtn').innerText = "🛑 Остановить";
+          document.getElementById('micBtn').style.background = "#ff3b30";
+          document.getElementById('singStatus').innerText = "Слушаю вас...";
+          updatePitchLoop();
+        } catch (err) {
+          alert("Не удалось получить доступ к микрофону");
+        }
+      }
+    }
+
+    function stopMic() {
+      if (micStream) micStream.getTracks().forEach(t => t.stop());
+      isMicActive = false;
+      document.getElementById('micBtn').innerText = "🎤 Включить микрофон";
+      document.getElementById('micBtn').style.background = "#34c759";
+      document.getElementById('singStatus').innerText = "Микрофон выключен";
+      document.getElementById('meterPointer').style.left = "50%";
+    }
+
+    function updatePitchLoop() {
+      if (!isMicActive) return;
+
+      const buf = new Float32Array(2048);
+      pitchAnalyser.getFloatTimeDomainData(buf);
+      const pitch = autoCorrelate(buf, audioCtx.sampleRate);
+
+      if (pitch !== -1) {
+        // Считаем разницу в центах относительно целевой ноты
+        const cents = 1200 * Math.log2(pitch / targetFreq);
+        let pointerPos = 50 + (cents / 2); // +- 100 центов
+        pointerPos = Math.max(0, Math.min(100, pointerPos));
+
+        const pointer = document.getElementById('meterPointer');
+        pointer.style.left = pointerPos + "%";
+
+        if (Math.abs(cents) < 15) {
+          pointer.style.background = "#4cd964"; // Точно!
+          document.getElementById('singStatus').innerText = "Идеально! ✨";
+        } else if (cents < 0) {
+          pointer.style.background = "#ffcc00";
+          document.getElementById('singStatus').innerText = "Ниже, спойте выше ⬆️";
+        } else {
+          pointer.style.background = "#ffcc00";
+          document.getElementById('singStatus').innerText = "Выше, спойте ниже ⬇️";
+        }
+      }
+
+      requestAnimationFrame(updatePitchLoop);
+    }
+
+    // Алгоритм определения частоты (Autocorrelation)
+    function autoCorrelate(buf, sampleRate) {
+      let SIZE = buf.length;
+      let rms = 0;
+      for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
+      rms = Math.sqrt(rms / SIZE);
+      if (rms < 0.01) return -1; // Слишком тихий звук
+
+      let r1 = 0, r2 = SIZE - 1, thres = 0.2;
+      for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) { r1 = i; break; }
+      for (let i = 1; i < SIZE / 2; i++) if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; }
+
+      buf = buf.slice(r1, r2);
+      SIZE = buf.length;
+
+      let c = new Array(SIZE).fill(0);
+      for (let i = 0; i < SIZE; i++)
+        for (let j = 0; j < SIZE - i; j++)
+          c[i] = c[i] + buf[j] * buf[j + i];
+
+      let d = 0; while (c[d] > c[d + 1]) d++;
+      let maxval = -1, maxpos = -1;
+      for (let i = d; i < SIZE; i++) {
+        if (c[i] > maxval) { maxval = c[i]; maxpos = i; }
+      }
+      let T0 = maxpos;
+      return sampleRate / T0;
+    }
+
+    // ---------------- 4. Энциклопедия ----------------
+    function initWiki() {
+      const container = document.getElementById('wiki-list');
+      INTERVALS.forEach(i => {
+        const item = document.createElement('div');
+        item.className = 'wiki-item';
+        item.innerHTML = `<div class="wiki-title">${i.name} (${i.semitones} полутон.)</div>
+                          <div class="wiki-desc">Содержит ${i.semitones} полутонов. Отношение частот: 1 : 2^(${i.semitones}/12).</div>`;
+        container.appendChild(item);
+      });
+    }
+
+    initWiki();
+  </script>
+</body>
+</html>
