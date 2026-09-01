@@ -125,14 +125,19 @@
     .meter-container { width: 100%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; position: relative; overflow: hidden; margin: 10px 0; }
     .meter-pointer { width: 6px; height: 100%; background: var(--btn-color); position: absolute; left: 50%; transform: translateX(-50%); transition: left 0.1s ease-out, background 0.2s; }
 
+    /* Таблица лидеров */
     .leader-row {
       display: flex;
       justify-content: space-between;
-      padding: 8px 12px;
+      padding: 10px 12px;
       border-bottom: 1px solid rgba(255,255,255,0.08);
       font-size: 13px;
+      text-align: left;
     }
     .leader-row:last-child { border-bottom: none; }
+    .leader-rank { font-weight: bold; width: 25px; color: var(--btn-color); }
+    .leader-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
+    .leader-score { font-weight: bold; color: var(--accent-color); }
 
     .wiki-section-title { font-size: 15px; font-weight: bold; text-align: left; margin: 16px 0 8px 0; color: var(--btn-color); border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 4px; }
     .wiki-item { text-align: left; border-bottom: 1px solid rgba(255,255,255,0.08); padding: 10px 8px; border-radius: 8px; cursor: pointer; }
@@ -223,9 +228,8 @@
   <!-- ВКЛАДКА 5: Лидеры и Теория -->
   <div id="tab-wiki" class="tab-content">
     <div class="card">
-      <h2>🏆 Ваш Рекорд</h2>
-      <h1 style="margin: 5px 0; color: var(--btn-color);" id="personal-record-display">0</h1>
-      <p style="margin-bottom:0;">Набирайте очки за правильные ответы во всех режимах!</p>
+      <h2>🏆 Общая Таблица Лидеров</h2>
+      <div id="leaderboard-container">Загрузка топа...</div>
     </div>
 
     <div class="card">
@@ -241,13 +245,20 @@
     <div class="nav-item" onclick="switchTab('identify', this)"><span class="nav-icon">👂</span><span>Интервалы</span></div>
     <div class="nav-item" onclick="switchTab('chords', this)"><span class="nav-icon">🎹</span><span>Аккорды</span></div>
     <div class="nav-item" onclick="switchTab('sing', this)"><span class="nav-icon">🎤</span><span>Пение</span></div>
-    <div class="nav-item" onclick="switchTab('wiki', this)"><span class="nav-icon">📚</span><span>Теория</span></div>
+    <div class="nav-item" onclick="switchTab('wiki', this)"><span class="nav-icon">📚</span><span>Топ & Теория</span></div>
   </div>
 
   <script>
     const tg = window.Telegram.WebApp;
     tg.ready();
     tg.expand();
+
+    // ---------------- FIREBASE CONFIG ----------------
+    const FIREBASE_DB_URL = "https://vocalapp-1174c-default-rtdb.firebaseio.com/";
+
+    const user = tg.initDataUnsafe?.user || { id: "guest_" + Math.floor(Math.random()*10000), first_name: "Музыкант" };
+    const userId = user.id;
+    const userName = (user.first_name + " " + (user.last_name || "")).trim() || "Аноним";
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -260,7 +271,6 @@
         if (el) el.innerText = score;
       });
       document.querySelectorAll('.high-score-val').forEach(el => el.innerText = highScore);
-      document.getElementById('personal-record-display').innerText = highScore;
     }
 
     function addScore(delta) {
@@ -268,8 +278,53 @@
       if (score > highScore) {
         highScore = score;
         localStorage.setItem('vocal_app_highscore', highScore);
+        saveScoreToFirebase(userId, userName, highScore);
       }
       updateScoreDisplays();
+    }
+
+    // Сохранение рекорда в облачную БД
+    async function saveScoreToFirebase(uid, name, val) {
+      if (!FIREBASE_DB_URL) return;
+      try {
+        await fetch(`${FIREBASE_DB_URL}leaderboard/${uid}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name, score: Number(val) })
+        });
+        fetchLeaderboard();
+      } catch (e) { console.error("Score save error", e); }
+    }
+
+    // Загрузка общей таблицы лидеров
+    async function fetchLeaderboard() {
+      const container = document.getElementById('leaderboard-container');
+      try {
+        const res = await fetch(`${FIREBASE_DB_URL}leaderboard.json`);
+        const data = await res.json();
+        if (!data) {
+          container.innerHTML = "<p style='font-size:12px;'>Пока нет рекордов. Станьте первым!</p>";
+          return;
+        }
+
+        let list = Object.values(data);
+        list.sort((a, b) => b.score - a.score);
+        list = list.slice(0, 10); // Топ-10
+
+        let html = '';
+        list.forEach((item, index) => {
+          let medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+          html += `
+            <div class="leader-row">
+              <span class="leader-rank">${medal}</span>
+              <span class="leader-name">${item.name}</span>
+              <span class="leader-score">${item.score}</span>
+            </div>`;
+        });
+        container.innerHTML = html;
+      } catch (e) {
+        container.innerHTML = "<p style='font-size:12px; color:var(--error-color);'>Ошибка загрузки топа</p>";
+      }
     }
 
     const INTERVALS = [
@@ -305,6 +360,7 @@
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       document.getElementById('tab-' + tabId).classList.add('active');
       el.classList.add('active');
+      if (tabId === 'wiki') fetchLeaderboard();
     }
 
     function playTone(freq, start, duration) {
@@ -545,7 +601,6 @@
       return sampleRate / maxpos;
     }
 
-    // Инициализация
     function initWiki() {
       const container = document.getElementById('wiki-list');
       container.innerHTML = '';
@@ -579,6 +634,7 @@
 
     initWiki();
     updateScoreDisplays();
+    fetchLeaderboard();
   </script>
 </body>
 </html>
