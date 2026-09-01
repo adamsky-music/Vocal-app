@@ -126,17 +126,32 @@
     .meter-pointer { width: 6px; height: 100%; background: var(--btn-color); position: absolute; left: 50%; transform: translateX(-50%); transition: left 0.1s ease-out, background 0.2s; }
 
     /* Таблица лидеров */
+    .leader-box {
+      margin-top: 16px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: left;
+    }
+    .leader-box-title {
+      font-size: 14px;
+      font-weight: bold;
+      color: var(--btn-color);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
     .leader-row {
       display: flex;
       justify-content: space-between;
-      padding: 10px 12px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      font-size: 13px;
-      text-align: left;
+      padding: 6px 4px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 12px;
     }
     .leader-row:last-child { border-bottom: none; }
-    .leader-rank { font-weight: bold; width: 25px; color: var(--btn-color); }
-    .leader-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 10px; }
+    .leader-rank { font-weight: bold; width: 22px; color: var(--btn-color); }
+    .leader-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 8px; }
     .leader-score { font-weight: bold; color: var(--accent-color); }
 
     .wiki-section-title { font-size: 15px; font-weight: bold; text-align: left; margin: 16px 0 8px 0; color: var(--btn-color); border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 4px; }
@@ -153,7 +168,7 @@
     <div class="card">
       <div class="score-banner">
         <span>Счет: <b id="score-cmp">0</b></span>
-        <span>Рекорд: <b class="high-score-val">0</b></span>
+        <span>Рекорд: <b id="hs-cmp">0</b></span>
       </div>
       <h2>⚖️ Сравнение интервалов</h2>
       <p>Определите, какой из двух интервалов <b>шире</b>.</p>
@@ -168,6 +183,11 @@
         <button class="opt-btn" id="comp2" onclick="checkCompare(2)" disabled>2-й шире</button>
       </div>
       <div class="feedback" id="fb-compare"></div>
+
+      <div class="leader-box">
+        <div class="leader-box-title">🏆 Топ игроков (Сравнение)</div>
+        <div id="lb-compare">Загрузка топа...</div>
+      </div>
     </div>
   </div>
 
@@ -176,7 +196,7 @@
     <div class="card">
       <div class="score-banner">
         <span>Счет: <b id="score-id">0</b></span>
-        <span>Рекорд: <b class="high-score-val">0</b></span>
+        <span>Рекорд: <b id="hs-id">0</b></span>
       </div>
       <h2>👂 Слух: Интервалы</h2>
       <p>Прослушайте интервал и угадайте его название.</p>
@@ -188,6 +208,11 @@
 
       <div class="grid-3" id="identify-options"></div>
       <div class="feedback" id="fb-identify"></div>
+
+      <div class="leader-box">
+        <div class="leader-box-title">🏆 Топ игроков (Интервалы)</div>
+        <div id="lb-identify">Загрузка топа...</div>
+      </div>
     </div>
   </div>
 
@@ -196,7 +221,7 @@
     <div class="card">
       <div class="score-banner">
         <span>Счет: <b id="score-chd">0</b></span>
-        <span>Рекорд: <b class="high-score-val">0</b></span>
+        <span>Рекорд: <b id="hs-chd">0</b></span>
       </div>
       <h2>🎹 Слух: Аккорды</h2>
       <p>Прослушайте аккорд и угадайте его тип.</p>
@@ -208,6 +233,11 @@
 
       <div class="grid-2" id="chord-options"></div>
       <div class="feedback" id="fb-chord"></div>
+
+      <div class="leader-box">
+        <div class="leader-box-title">🏆 Топ игроков (Аккорды)</div>
+        <div id="lb-chords">Загрузка топа...</div>
+      </div>
     </div>
   </div>
 
@@ -225,13 +255,8 @@
     </div>
   </div>
 
-  <!-- ВКЛАДКА 5: Лидеры и Теория -->
+  <!-- ВКЛАДКА 5: Теория -->
   <div id="tab-wiki" class="tab-content">
-    <div class="card">
-      <h2>🏆 Общая Таблица Лидеров</h2>
-      <div id="leaderboard-container">Загрузка топа...</div>
-    </div>
-
     <div class="card">
       <h2>📚 Энциклопедия ЭТМ</h2>
       <p style="font-size: 11px;">💡 Нажмите для воспроизведения.</p>
@@ -245,7 +270,7 @@
     <div class="nav-item" onclick="switchTab('identify', this)"><span class="nav-icon">👂</span><span>Интервалы</span></div>
     <div class="nav-item" onclick="switchTab('chords', this)"><span class="nav-icon">🎹</span><span>Аккорды</span></div>
     <div class="nav-item" onclick="switchTab('sing', this)"><span class="nav-icon">🎤</span><span>Пение</span></div>
-    <div class="nav-item" onclick="switchTab('wiki', this)"><span class="nav-icon">📚</span><span>Топ & Теория</span></div>
+    <div class="nav-item" onclick="switchTab('wiki', this)"><span class="nav-icon">📚</span><span>Теория</span></div>
   </div>
 
   <script>
@@ -262,54 +287,64 @@
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    let score = 0;
-    let highScore = localStorage.getItem('vocal_app_highscore') || 0;
+    // Раздельный счет
+    let scores = { cmp: 0, id: 0, chd: 0 };
+    let highScores = {
+      cmp: Number(localStorage.getItem('vocal_app_hs_cmp')) || 0,
+      id: Number(localStorage.getItem('vocal_app_hs_id')) || 0,
+      chd: Number(localStorage.getItem('vocal_app_hs_chd')) || 0
+    };
 
     function updateScoreDisplays() {
-      ['score-cmp', 'score-id', 'score-chd'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.innerText = score;
-      });
-      document.querySelectorAll('.high-score-val').forEach(el => el.innerText = highScore);
+      document.getElementById('score-cmp').innerText = scores.cmp;
+      document.getElementById('score-id').innerText = scores.id;
+      document.getElementById('score-chd').innerText = scores.chd;
+
+      document.getElementById('hs-cmp').innerText = highScores.cmp;
+      document.getElementById('hs-id').innerText = highScores.id;
+      document.getElementById('hs-chd').innerText = highScores.chd;
     }
 
-    function addScore(delta) {
-      score = Math.max(0, score + delta);
-      if (score > highScore) {
-        highScore = score;
-        localStorage.setItem('vocal_app_highscore', highScore);
-        saveScoreToFirebase(userId, userName, highScore);
+    function addScore(mode, delta) {
+      scores[mode] = Math.max(0, scores[mode] + delta);
+      if (scores[mode] > highScores[mode]) {
+        highScores[mode] = scores[mode];
+        localStorage.setItem(`vocal_app_hs_${mode}`, highScores[mode]);
+        saveScoreToFirebase(mode, userId, userName, highScores[mode]);
       }
       updateScoreDisplays();
     }
 
-    // Сохранение рекорда в облачную БД
-    async function saveScoreToFirebase(uid, name, val) {
+    // Сохранение рекорда в отдельную ветку режима
+    async function saveScoreToFirebase(mode, uid, name, val) {
       if (!FIREBASE_DB_URL) return;
       try {
-        await fetch(`${FIREBASE_DB_URL}leaderboard/${uid}.json`, {
+        await fetch(`${FIREBASE_DB_URL}leaderboard_${mode}/${uid}.json`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: name, score: Number(val) })
         });
-        fetchLeaderboard();
+        fetchLeaderboard(mode);
       } catch (e) { console.error("Score save error", e); }
     }
 
-    // Загрузка общей таблицы лидеров
-    async function fetchLeaderboard() {
-      const container = document.getElementById('leaderboard-container');
+    // Загрузка топа для конкретного режима
+    async function fetchLeaderboard(mode) {
+      const containerMap = { cmp: 'lb-compare', id: 'lb-identify', chd: 'lb-chords' };
+      const container = document.getElementById(containerMap[mode]);
+      if (!container) return;
+
       try {
-        const res = await fetch(`${FIREBASE_DB_URL}leaderboard.json`);
+        const res = await fetch(`${FIREBASE_DB_URL}leaderboard_${mode}.json`);
         const data = await res.json();
         if (!data) {
-          container.innerHTML = "<p style='font-size:12px;'>Пока нет рекордов. Станьте первым!</p>";
+          container.innerHTML = "<p style='font-size:11px; opacity:0.7;'>Пока нет рекордов. Будьте первым!</p>";
           return;
         }
 
         let list = Object.values(data);
         list.sort((a, b) => b.score - a.score);
-        list = list.slice(0, 10); // Топ-10
+        list = list.slice(0, 5); // Топ-5 для компактности внутри блока
 
         let html = '';
         list.forEach((item, index) => {
@@ -323,8 +358,14 @@
         });
         container.innerHTML = html;
       } catch (e) {
-        container.innerHTML = "<p style='font-size:12px; color:var(--error-color);'>Ошибка загрузки топа</p>";
+        container.innerHTML = "<p style='font-size:11px; color:var(--error-color);'>Загрузка рекордов...</p>";
       }
+    }
+
+    function fetchAllLeaderboards() {
+      fetchLeaderboard('cmp');
+      fetchLeaderboard('id');
+      fetchLeaderboard('chd');
     }
 
     const INTERVALS = [
@@ -360,7 +401,6 @@
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       document.getElementById('tab-' + tabId).classList.add('active');
       el.classList.add('active');
-      if (tabId === 'wiki') fetchLeaderboard();
     }
 
     function playTone(freq, start, duration) {
@@ -423,11 +463,11 @@
       if (ans === widerIdx) {
         fb.innerText = "Правильно! +10 очков 🎉";
         fb.className = "feedback correct";
-        addScore(10);
+        addScore('cmp', 10);
       } else {
         fb.innerText = "Неверно! -5 очков ❌";
         fb.className = "feedback wrong";
-        addScore(-5);
+        addScore('cmp', -5);
       }
       document.getElementById('comp1').disabled = true;
       document.getElementById('comp2').disabled = true;
@@ -462,11 +502,11 @@
           if (opt.semitones === currentTargetInterval.semitones) {
             fb.innerText = "Верно! +10 очков 👏";
             fb.className = "feedback correct";
-            addScore(10);
+            addScore('id', 10);
           } else {
             fb.innerText = `Ошибка! Это ${currentTargetInterval.name} (-5 очков)`;
             fb.className = "feedback wrong";
-            addScore(-5);
+            addScore('id', -5);
           }
         };
         container.appendChild(btn);
@@ -507,11 +547,11 @@
           if (opt.name === currentTargetChord.name) {
             fb.innerText = "Правильно! +10 очков 🎹";
             fb.className = "feedback correct";
-            addScore(10);
+            addScore('chd', 10);
           } else {
             fb.innerText = `Ошибка! Это ${currentTargetChord.name} (-5 очков)`;
             fb.className = "feedback wrong";
-            addScore(-5);
+            addScore('chd', -5);
           }
         };
         container.appendChild(btn);
@@ -634,7 +674,7 @@
 
     initWiki();
     updateScoreDisplays();
-    fetchLeaderboard();
+    fetchAllLeaderboards();
   </script>
 </body>
 </html>
