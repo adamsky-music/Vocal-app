@@ -82,6 +82,28 @@
       margin-bottom: 12px;
     }
 
+    .sound-selector {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255,255,255,0.04);
+      padding: 6px 12px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .sound-selector select {
+      background: var(--card-bg);
+      color: var(--text-color);
+      border: 1px solid rgba(255,255,255,0.2);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      outline: none;
+    }
+
     h2 { margin-top: 0; font-size: 19px; }
     p { font-size: 13px; opacity: 0.8; line-height: 1.4; }
 
@@ -125,7 +147,37 @@
     .meter-container { width: 100%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; position: relative; overflow: hidden; margin: 10px 0; }
     .meter-pointer { width: 6px; height: 100%; background: var(--btn-color); position: absolute; left: 50%; transform: translateX(-50%); transition: left 0.1s ease-out, background 0.2s; }
 
-    /* Таблица лидеров */
+    .rhythm-display {
+      font-size: 26px;
+      letter-spacing: 4px;
+      background: rgba(0,0,0,0.3);
+      padding: 16px;
+      border-radius: 12px;
+      margin: 12px 0;
+      font-family: monospace;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .tap-btn {
+      background: var(--btn-color);
+      color: var(--btn-text-color);
+      border: none;
+      padding: 24px;
+      font-size: 20px;
+      font-weight: bold;
+      border-radius: 16px;
+      width: 100%;
+      margin-top: 10px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    .tap-btn:active { transform: scale(0.97); }
+
     .leader-box {
       margin-top: 16px;
       background: rgba(0, 0, 0, 0.2);
@@ -154,6 +206,17 @@
     .leader-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 8px; }
     .leader-score { font-weight: bold; color: var(--accent-color); }
 
+    .level-badge {
+      font-size: 11px;
+      background: rgba(76, 217, 100, 0.2);
+      color: var(--accent-color);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: bold;
+      margin-bottom: 8px;
+      display: inline-block;
+    }
+
     .wiki-section-title { font-size: 15px; font-weight: bold; text-align: left; margin: 16px 0 8px 0; color: var(--btn-color); border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 4px; }
     .wiki-item { text-align: left; border-bottom: 1px solid rgba(255,255,255,0.08); padding: 10px 8px; border-radius: 8px; cursor: pointer; }
     .wiki-item:active { background: rgba(255, 255, 255, 0.08); }
@@ -163,12 +226,61 @@
 </head>
 <body>
 
-  <!-- ВКЛАДКА 1: Сравнение -->
-  <div id="tab-compare" class="tab-content active">
+  <!-- ВКЛАДКА 1: Ритм -->
+  <div id="tab-rhythm" class="tab-content active">
+    <div class="card">
+      <div class="score-banner">
+        <span>Счет: <b id="score-rhythm">0</b></span>
+        <span>Рекорд: <b id="hs-rhythm">0</b></span>
+      </div>
+      <div class="sound-selector">
+        <span>🥁 Звук перкуссии:</span>
+        <select id="soundType-rhythm">
+          <option value="woodblock" selected>Деревяшка (Woodblock)</option>
+          <option value="snare">Рабочий барабан (Snare)</option>
+          <option value="kick">Бочка (Kick Drum)</option>
+          <option value="hihat">Хай-хет (Hi-Hat)</option>
+          <option value="rimshot">Римшот (Rimshot)</option>
+        </select>
+      </div>
+      <h2>🥁 Ритмический тренажер</h2>
+      <div id="rhythm-level-badge" class="level-badge">Уровень 1: Четверти и паузы</div>
+      <p>Прослушайте и повторите ритмический рисунок кнопкой TAP.</p>
+      
+      <div class="rhythm-display" id="rhythmNotations">𝄢 - - -</div>
+
+      <div class="grid-2">
+        <button class="btn btn-secondary" id="repeatRhythmBtn" onclick="repeatRhythm()" disabled>🔁 Послушать</button>
+        <button class="btn" onclick="nextRhythm()">⏭ Новый ритм</button>
+      </div>
+
+      <button class="tap-btn" id="tapBtn" onmousedown="handleTap()" touchstart="handleTap()" disabled>🥁 TAP</button>
+
+      <div class="feedback" id="fb-rhythm"></div>
+
+      <div class="leader-box">
+        <div class="leader-box-title">🏆 Топ игроков (Ритм)</div>
+        <div id="lb-rhythm">Загрузка топа...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ВКЛАДКА 2: Сравнение -->
+  <div id="tab-compare" class="tab-content">
     <div class="card">
       <div class="score-banner">
         <span>Счет: <b id="score-cmp">0</b></span>
         <span>Рекорд: <b id="hs-cmp">0</b></span>
+      </div>
+      <div class="sound-selector">
+        <span>🎛 Тембр:</span>
+        <select id="soundType-cmp">
+          <option value="sine">Синус</option>
+          <option value="triangle" selected>Мягкий</option>
+          <option value="filtered-saw">Теплый</option>
+          <option value="square">8-Bit</option>
+          <option value="fm">FM-Пианино</option>
+        </select>
       </div>
       <h2>⚖️ Сравнение интервалов</h2>
       <p>Определите, какой из двух интервалов <b>шире</b>.</p>
@@ -191,14 +303,25 @@
     </div>
   </div>
 
-  <!-- ВКЛАДКА 2: Определение интервалов -->
+  <!-- ВКЛАДКА 3: Определение интервалов -->
   <div id="tab-identify" class="tab-content">
     <div class="card">
       <div class="score-banner">
         <span>Счет: <b id="score-id">0</b></span>
         <span>Рекорд: <b id="hs-id">0</b></span>
       </div>
+      <div class="sound-selector">
+        <span>🎛 Тембр:</span>
+        <select id="soundType-id">
+          <option value="sine">Синус</option>
+          <option value="triangle" selected>Мягкий</option>
+          <option value="filtered-saw">Теплый</option>
+          <option value="square">8-Bit</option>
+          <option value="fm">FM-Пианино</option>
+        </select>
+      </div>
       <h2>👂 Слух: Интервалы</h2>
+      <div id="interval-level-badge" class="level-badge">Уровень 1: Секунды и Терции</div>
       <p>Прослушайте интервал и угадайте его название.</p>
       
       <div class="grid-2">
@@ -216,12 +339,22 @@
     </div>
   </div>
 
-  <!-- ВКЛАДКА 3: Определение аккордов -->
+  <!-- ВКЛАДКА 4: Определение аккордов -->
   <div id="tab-chords" class="tab-content">
     <div class="card">
       <div class="score-banner">
         <span>Счет: <b id="score-chd">0</b></span>
         <span>Рекорд: <b id="hs-chd">0</b></span>
+      </div>
+      <div class="sound-selector">
+        <span>🎛 Тембр:</span>
+        <select id="soundType-chd">
+          <option value="sine">Синус</option>
+          <option value="triangle" selected>Мягкий</option>
+          <option value="filtered-saw">Теплый</option>
+          <option value="square">8-Bit</option>
+          <option value="fm">FM-Пианино</option>
+        </select>
       </div>
       <h2>🎹 Слух: Аккорды</h2>
       <p>Прослушайте аккорд и угадайте его тип.</p>
@@ -241,7 +374,7 @@
     </div>
   </div>
 
-  <!-- ВКЛАДКА 4: Пение -->
+  <!-- ВКЛАДКА 5: Пение -->
   <div id="tab-sing" class="tab-content">
     <div class="card">
       <h2>🎤 Пропевание ноты</h2>
@@ -255,7 +388,7 @@
     </div>
   </div>
 
-  <!-- ВКЛАДКА 5: Теория -->
+  <!-- ВКЛАДКА 6: Теория -->
   <div id="tab-wiki" class="tab-content">
     <div class="card">
       <h2>📚 Энциклопедия ЭТМ</h2>
@@ -266,7 +399,8 @@
 
   <!-- Навигация -->
   <div class="nav-bar">
-    <div class="nav-item active" onclick="switchTab('compare', this)"><span class="nav-icon">⚖️</span><span>Сравнение</span></div>
+    <div class="nav-item active" onclick="switchTab('rhythm', this)"><span class="nav-icon">🥁</span><span>Ритм</span></div>
+    <div class="nav-item" onclick="switchTab('compare', this)"><span class="nav-icon">⚖️</span><span>Сравнение</span></div>
     <div class="nav-item" onclick="switchTab('identify', this)"><span class="nav-icon">👂</span><span>Интервалы</span></div>
     <div class="nav-item" onclick="switchTab('chords', this)"><span class="nav-icon">🎹</span><span>Аккорды</span></div>
     <div class="nav-item" onclick="switchTab('sing', this)"><span class="nav-icon">🎤</span><span>Пение</span></div>
@@ -288,18 +422,21 @@
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
     // Раздельный счет
-    let scores = { cmp: 0, id: 0, chd: 0 };
+    let scores = { rhythm: 0, cmp: 0, id: 0, chd: 0 };
     let highScores = {
+      rhythm: Number(localStorage.getItem('vocal_app_hs_rhythm')) || 0,
       cmp: Number(localStorage.getItem('vocal_app_hs_cmp')) || 0,
       id: Number(localStorage.getItem('vocal_app_hs_id')) || 0,
       chd: Number(localStorage.getItem('vocal_app_hs_chd')) || 0
     };
 
     function updateScoreDisplays() {
+      document.getElementById('score-rhythm').innerText = scores.rhythm;
       document.getElementById('score-cmp').innerText = scores.cmp;
       document.getElementById('score-id').innerText = scores.id;
       document.getElementById('score-chd').innerText = scores.chd;
 
+      document.getElementById('hs-rhythm').innerText = highScores.rhythm;
       document.getElementById('hs-cmp').innerText = highScores.cmp;
       document.getElementById('hs-id').innerText = highScores.id;
       document.getElementById('hs-chd').innerText = highScores.chd;
@@ -315,7 +452,7 @@
       updateScoreDisplays();
     }
 
-    // Сохранение рекорда в отдельную ветку режима
+    // Сохранение рекорда в отдельную ветку
     async function saveScoreToFirebase(mode, uid, name, val) {
       if (!FIREBASE_DB_URL) return;
       try {
@@ -328,9 +465,9 @@
       } catch (e) { console.error("Score save error", e); }
     }
 
-    // Загрузка топа для конкретного режима
+    // Загрузка топа
     async function fetchLeaderboard(mode) {
-      const containerMap = { cmp: 'lb-compare', id: 'lb-identify', chd: 'lb-chords' };
+      const containerMap = { rhythm: 'lb-rhythm', cmp: 'lb-compare', id: 'lb-identify', chd: 'lb-chords' };
       const container = document.getElementById(containerMap[mode]);
       if (!container) return;
 
@@ -344,7 +481,7 @@
 
         let list = Object.values(data);
         list.sort((a, b) => b.score - a.score);
-        list = list.slice(0, 5); // Топ-5 для компактности внутри блока
+        list = list.slice(0, 5);
 
         let html = '';
         list.forEach((item, index) => {
@@ -358,14 +495,197 @@
         });
         container.innerHTML = html;
       } catch (e) {
-        container.innerHTML = "<p style='font-size:11px; color:var(--error-color);'>Загрузка рекордов...</p>";
+        container.innerHTML = "<p style='font-size:11px; color:var(--error-color);'>Загрузка...</p>";
       }
     }
 
     function fetchAllLeaderboards() {
+      fetchLeaderboard('rhythm');
       fetchLeaderboard('cmp');
       fetchLeaderboard('id');
       fetchLeaderboard('chd');
+    }
+
+    // ---------------- СИНТЕЗ ЗВУКА С ВЫБОРОМ ТЕМБРА ----------------
+    function playTone(freq, start, duration, soundType = 'triangle') {
+      const gain = audioCtx.createGain();
+      gain.connect(audioCtx.destination);
+
+      if (soundType === 'sine' || soundType === 'triangle' || soundType === 'square') {
+        const osc = audioCtx.createOscillator();
+        osc.type = soundType;
+        osc.frequency.setValueAtTime(freq, start);
+
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(soundType === 'square' ? 0.12 : 0.25, start + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+
+        osc.connect(gain);
+        osc.start(start);
+        osc.stop(start + duration);
+      } 
+      else if (soundType === 'filtered-saw') {
+        const osc = audioCtx.createOscillator();
+        const filter = audioCtx.createBiquadFilter();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, start);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1000, start);
+
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.2, start + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        osc.start(start);
+        osc.stop(start + duration);
+      }
+      else if (soundType === 'fm') {
+        const carrier = audioCtx.createOscillator();
+        const modulator = audioCtx.createOscillator();
+        const modGain = audioCtx.createGain();
+
+        carrier.type = 'sine';
+        carrier.frequency.setValueAtTime(freq, start);
+
+        modulator.type = 'sine';
+        modulator.frequency.setValueAtTime(freq * 2, start);
+        modGain.gain.setValueAtTime(freq * 1.5, start);
+        modGain.gain.exponentialRampToValueAtTime(0.01, start + duration);
+
+        modulator.connect(modGain);
+        modGain.connect(carrier.frequency);
+
+        gain.gain.setValueAtTime(0, start);
+        gain.gain.linearRampToValueAtTime(0.22, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+
+        carrier.connect(gain);
+        modulator.start(start);
+        carrier.start(start);
+        modulator.stop(start + duration);
+        carrier.stop(start + duration);
+      }
+    }
+
+    // ---------------- СИНТЕЗАТОР БАРАБАНОВ / ПЕРКУССИИ ----------------
+    function playDrumHit(start, drumType = 'woodblock') {
+      if (drumType === 'woodblock') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(800, start);
+        osc.frequency.exponentialRampToValueAtTime(400, start + 0.05);
+        gain.gain.setValueAtTime(0.4, start);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.05);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(start);
+        osc.stop(start + 0.05);
+      }
+      else if (drumType === 'kick') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(130, start);
+        osc.frequency.exponentialRampToValueAtTime(30, start + 0.12);
+        gain.gain.setValueAtTime(0.7, start);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.12);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(start);
+        osc.stop(start + 0.12);
+      }
+      else if (drumType === 'snare') {
+        const osc = audioCtx.createOscillator();
+        const oscGain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(180, start);
+        osc.frequency.exponentialRampToValueAtTime(80, start + 0.1);
+        oscGain.gain.setValueAtTime(0.3, start);
+        oscGain.gain.exponentialRampToValueAtTime(0.001, start + 0.1);
+        osc.connect(oscGain);
+        oscGain.connect(audioCtx.destination);
+        osc.start(start);
+        osc.stop(start + 0.1);
+
+        const bufferSize = audioCtx.sampleRate * 0.15;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.setValueAtTime(1000, start);
+
+        const noiseGain = audioCtx.createGain();
+        noiseGain.gain.setValueAtTime(0.3, start);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, start + 0.15);
+
+        noise.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(audioCtx.destination);
+        noise.start(start);
+      }
+      else if (drumType === 'hihat') {
+        const bufferSize = audioCtx.sampleRate * 0.05;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.setValueAtTime(6000, start);
+
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.3, start);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.05);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        noise.start(start);
+      }
+      else if (drumType === 'rimshot') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(1600, start);
+        osc.frequency.exponentialRampToValueAtTime(400, start + 0.025);
+        gain.gain.setValueAtTime(0.5, start);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + 0.025);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(start);
+        osc.stop(start + 0.025);
+      }
+    }
+
+    function playInterval(baseFreq, semitones, start, soundType = 'triangle', harmonic = false) {
+      const freq2 = baseFreq * Math.pow(2, semitones / 12);
+      if (harmonic) {
+        playTone(baseFreq, start, 1.0, soundType);
+        playTone(freq2, start, 1.0, soundType);
+      } else {
+        playTone(baseFreq, start, 0.8, soundType);
+        playTone(freq2, start + 0.1, 0.8, soundType);
+      }
+    }
+
+    function playChordAudio(baseFreq, offsets, soundType = 'triangle') {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const now = audioCtx.currentTime;
+      offsets.forEach(offset => {
+        const freq = baseFreq * Math.pow(2, offset / 12);
+        playTone(freq, now, 1.2, soundType);
+      });
     }
 
     const INTERVALS = [
@@ -403,41 +723,185 @@
       el.classList.add('active');
     }
 
-    function playTone(freq, start, duration) {
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, start);
-      gain.gain.setValueAtTime(0.25, start);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-      osc.start(start);
-      osc.stop(start + duration);
+    // ---------------- 1. РИТМИЧЕСКИЙ ТРЕНАЖЕР ----------------
+    let currentRhythmPattern = [];
+    let userTapTimes = [];
+    let rhythmStartTime = 0;
+    let isRhythmListening = false;
+
+    // Генерация ритма по уровням сложностей
+    function generateRhythmPattern() {
+      const s = scores.rhythm;
+      let levelText = "";
+      let pattern = [];
+
+      if (s < 30) {
+        levelText = "Уровень 1: Четверти и паузы";
+        const pool = [
+          [{ type: 'q', notation: '♩' }],
+          [{ type: 'rest_q', notation: '𝄽' }]
+        ];
+        for (let i = 0; i < 4; i++) {
+          let choice = Math.random() < 0.75 ? pool[0][0] : pool[1][0];
+          pattern.push(choice);
+        }
+      } else if (s < 70) {
+        levelText = "Уровень 2: Восьмые ноты";
+        const pool = [
+          [{ type: 'q', notation: '♩' }],
+          [{ type: 'rest_q', notation: '𝄽' }],
+          [{ type: 'e', notation: '♫' }]
+        ];
+        for (let i = 0; i < 4; i++) {
+          let choice = pool[Math.floor(Math.random() * pool.length)];
+          pattern.push(choice[0]);
+        }
+      } else if (s < 120) {
+        levelText = "Уровень 3: Четверть с точкой и шестнадцатые";
+        const pool = [
+          [{ type: 'q', notation: '♩' }],
+          [{ type: 'e', notation: '♫' }],
+          [{ type: 'sixteen', notation: '♬' }],
+          [{ type: 'dotted_q', notation: '♩.' }]
+        ];
+        for (let i = 0; i < 4; i++) {
+          let choice = pool[Math.floor(Math.random() * pool.length)];
+          pattern.push(choice[0]);
+        }
+      } else {
+        levelText = "Уровень 4: Триоли и сложные синхроны";
+        const pool = [
+          [{ type: 'e', notation: '♫' }],
+          [{ type: 'triplet', notation: '𝄵' }],
+          [{ type: 'sixteen', notation: '♬' }],
+          [{ type: 'rest_e', notation: '𝄾' }]
+        ];
+        for (let i = 0; i < 4; i++) {
+          let choice = pool[Math.floor(Math.random() * pool.length)];
+          pattern.push(choice[0]);
+        }
+      }
+
+      document.getElementById('rhythm-level-badge').innerText = levelText;
+      return pattern;
     }
 
-    function playInterval(baseFreq, semitones, start) {
-      const freq2 = baseFreq * Math.pow(2, semitones / 12);
-      playTone(baseFreq, start, 0.8);
-      playTone(freq2, start + 0.1, 0.8);
-    }
+    function getPatternTimings(pattern) {
+      const qTime = 0.75;
+      let timings = [];
+      let currentTime = 0;
 
-    function playChordAudio(baseFreq, offsets) {
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      const now = audioCtx.currentTime;
-      offsets.forEach(offset => {
-        const freq = baseFreq * Math.pow(2, offset / 12);
-        playTone(freq, now, 1.2);
+      pattern.forEach(item => {
+        if (item.type === 'q') {
+          timings.push(currentTime);
+          currentTime += qTime;
+        } else if (item.type === 'rest_q') {
+          currentTime += qTime;
+        } else if (item.type === 'e') {
+          timings.push(currentTime);
+          timings.push(currentTime + qTime / 2);
+          currentTime += qTime;
+        } else if (item.type === 'sixteen') {
+          for (let k = 0; k < 4; k++) {
+            timings.push(currentTime + (k * qTime / 4));
+          }
+          currentTime += qTime;
+        } else if (item.type === 'dotted_q') {
+          timings.push(currentTime);
+          currentTime += qTime * 1.5;
+        } else if (item.type === 'triplet') {
+          for (let k = 0; k < 3; k++) {
+            timings.push(currentTime + (k * qTime / 3));
+          }
+          currentTime += qTime;
+        } else if (item.type === 'rest_e') {
+          currentTime += qTime / 2;
+        }
       });
+
+      return { timings, totalDuration: currentTime };
     }
 
-    // 1. Сравнение
+    function playRhythmAudio() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const now = audioCtx.currentTime + 0.1;
+      const { timings, totalDuration } = getPatternTimings(currentRhythmPattern);
+      const drumType = document.getElementById('soundType-rhythm').value;
+
+      timings.forEach(t => {
+        playDrumHit(now + t, drumType);
+      });
+
+      document.getElementById('tapBtn').disabled = true;
+      document.getElementById('repeatRhythmBtn').disabled = true;
+
+      setTimeout(() => {
+        document.getElementById('tapBtn').disabled = false;
+        document.getElementById('repeatRhythmBtn').disabled = false;
+        document.getElementById('fb-rhythm').innerText = "Теперь натапайте ритм!";
+        document.getElementById('fb-rhythm').className = "feedback";
+        userTapTimes = [];
+        rhythmStartTime = performance.now();
+        isRhythmListening = true;
+      }, (totalDuration + 0.3) * 1000);
+    }
+
+    function nextRhythm() {
+      document.getElementById('fb-rhythm').innerText = '';
+      currentRhythmPattern = generateRhythmPattern();
+      const notStr = currentRhythmPattern.map(p => p.notation).join(' ');
+      document.getElementById('rhythmNotations').innerText = notStr;
+      playRhythmAudio();
+    }
+
+    function repeatRhythm() {
+      if (currentRhythmPattern.length > 0) playRhythmAudio();
+    }
+
+    function handleTap(e) {
+      if (e) e.preventDefault();
+      if (!isRhythmListening) return;
+
+      const drumType = document.getElementById('soundType-rhythm').value;
+      playDrumHit(audioCtx.currentTime, drumType);
+      const tapTime = (performance.now() - rhythmStartTime) / 1000;
+      userTapTimes.push(tapTime);
+
+      const { timings } = getPatternTimings(currentRhythmPattern);
+
+      if (userTapTimes.length >= timings.length) {
+        isRhythmListening = false;
+        evaluateRhythm(timings);
+      }
+    }
+
+    function evaluateRhythm(targetTimings) {
+      let totalDiff = 0;
+      for (let i = 0; i < targetTimings.length; i++) {
+        totalDiff += Math.abs(userTapTimes[i] - targetTimings[i]);
+      }
+      const avgDiff = totalDiff / targetTimings.length;
+      const fb = document.getElementById('fb-rhythm');
+
+      if (avgDiff < 0.14) {
+        fb.innerText = `Идеальное попадание! 🎉 (Погрешность ${Math.round(avgDiff*1000)}мс) +10 очков`;
+        fb.className = "feedback correct";
+        addScore('rhythm', 10);
+      } else {
+        fb.innerText = `Мимо ритма ❌ (Погрешность ${Math.round(avgDiff*1000)}мс) -5 очков`;
+        fb.className = "feedback wrong";
+        addScore('rhythm', -5);
+      }
+    }
+
+    // 2. Сравнение
     let widerIdx = 0, currentS1 = 0, currentS2 = 0;
     function playCompareAudio() {
       if (audioCtx.state === 'suspended') audioCtx.resume();
       const now = audioCtx.currentTime;
-      playInterval(261.63, currentS1, now);
-      playInterval(261.63, currentS2, now + 1.2);
+      const st = document.getElementById('soundType-cmp').value;
+      playInterval(261.63, currentS1, now, st);
+      playInterval(261.63, currentS2, now + 1.2, st);
       setTimeout(() => {
         document.getElementById('comp1').disabled = false;
         document.getElementById('comp2').disabled = false;
@@ -473,20 +937,55 @@
       document.getElementById('comp2').disabled = true;
     }
 
-    // 2. Определение интервалов
+    // 3. Определение интервалов с усложнением
     let currentTargetInterval = null;
+    let isHarmonicInterval = false;
+
+    function getAvailableIntervals() {
+      const s = scores.id;
+      let badgeText = "";
+      let available = [];
+      let isHarmonic = false;
+
+      if (s < 30) {
+        badgeText = "Уровень 1: Секунды и Терции (восходящие)";
+        available = INTERVALS.slice(0, 4);
+      } else if (s < 70) {
+        badgeText = "Уровень 2: До Квинты (восходящие)";
+        available = INTERVALS.slice(0, 7);
+      } else if (s < 120) {
+        badgeText = "Уровень 3: Все интервалы до Октавы";
+        available = INTERVALS;
+      } else if (s < 180) {
+        badgeText = "Уровень 4: Гармонические интервалы (одновременно)";
+        available = INTERVALS;
+        isHarmonic = true;
+      } else {
+        badgeText = "Уровень 5: Мастер (Все типы вразнобой)";
+        available = INTERVALS;
+        isHarmonic = Math.random() < 0.5;
+      }
+
+      document.getElementById('interval-level-badge').innerText = badgeText;
+      return { available, isHarmonic };
+    }
+
     function playIdentifyAudio() {
       if (audioCtx.state === 'suspended') audioCtx.resume();
-      playInterval(261.63, currentTargetInterval.semitones, audioCtx.currentTime);
+      const st = document.getElementById('soundType-id').value;
+      playInterval(261.63, currentTargetInterval.semitones, audioCtx.currentTime, st, isHarmonicInterval);
       document.getElementById('repeatIdentifyBtn').disabled = false;
     }
 
     function nextIdentify() {
       document.getElementById('fb-identify').innerText = '';
-      currentTargetInterval = INTERVALS[Math.floor(Math.random() * INTERVALS.length)];
+      const { available, isHarmonic } = getAvailableIntervals();
+      isHarmonicInterval = isHarmonic;
+
+      currentTargetInterval = available[Math.floor(Math.random() * available.length)];
       let options = [currentTargetInterval];
       while (options.length < 3) {
-        let rand = INTERVALS[Math.floor(Math.random() * INTERVALS.length)];
+        let rand = available[Math.floor(Math.random() * available.length)];
         if (!options.includes(rand)) options.push(rand);
       }
       options.sort(() => Math.random() - 0.5);
@@ -517,11 +1016,12 @@
 
     function repeatIdentify() { if (currentTargetInterval) playIdentifyAudio(); }
 
-    // 3. Определение аккордов
+    // 4. Определение аккордов
     let currentTargetChord = null;
     function playChordGameAudio() {
       if (audioCtx.state === 'suspended') audioCtx.resume();
-      playChordAudio(261.63, currentTargetChord.offsets);
+      const st = document.getElementById('soundType-chd').value;
+      playChordAudio(261.63, currentTargetChord.offsets, st);
       document.getElementById('repeatChordBtn').disabled = false;
     }
 
@@ -562,7 +1062,7 @@
 
     function repeatChord() { if (currentTargetChord) playChordGameAudio(); }
 
-    // 4. Пропевание ноты
+    // 5. Пропевание ноты
     let isMicActive = false, micStream = null, pitchAnalyser = null, targetFreq = 261.63;
     function generateTargetNote() {
       if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -570,7 +1070,7 @@
       targetFreq = 440 * Math.pow(2, (midi - 69) / 12);
       const noteName = NOTE_NAMES[midi % 12] + Math.floor(midi / 12 - 1);
       document.getElementById('targetNoteDisplay').innerText = noteName;
-      playTone(targetFreq, audioCtx.currentTime, 1.2);
+      playTone(targetFreq, audioCtx.currentTime, 1.2, 'triangle');
     }
 
     async function toggleMic() {
@@ -653,7 +1153,7 @@
       INTERVALS.forEach(i => {
         const item = document.createElement('div');
         item.className = 'wiki-item';
-        item.onclick = () => { if (audioCtx.state === 'suspended') audioCtx.resume(); playInterval(261.63, i.semitones, audioCtx.currentTime); };
+        item.onclick = () => { if (audioCtx.state === 'suspended') audioCtx.resume(); playInterval(261.63, i.semitones, audioCtx.currentTime, 'triangle'); };
         item.innerHTML = `<div class="wiki-title"><span>${i.name}</span> <span>🔊</span></div><div class="wiki-desc">Объем: <b>${i.semitones} полут.</b></div>`;
         container.appendChild(item);
       });
@@ -666,7 +1166,7 @@
       CHORDS.forEach(c => {
         const item = document.createElement('div');
         item.className = 'wiki-item';
-        item.onclick = () => playChordAudio(261.63, c.offsets);
+        item.onclick = () => playChordAudio(261.63, c.offsets, 'triangle');
         item.innerHTML = `<div class="wiki-title"><span>${c.name}</span> <span>🔊</span></div><div class="wiki-desc"><b>Состав:</b> ${c.structure} (${c.desc})</div>`;
         container.appendChild(item);
       });
