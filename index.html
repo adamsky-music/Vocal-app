@@ -26,7 +26,6 @@
       user-select: none;
     }
 
-    /* Навигационное меню снизу */
     .nav-bar {
       position: fixed;
       bottom: 0;
@@ -60,7 +59,6 @@
       margin-bottom: 2px;
     }
 
-    /* Секции контента */
     .tab-content {
       display: none;
       padding: 20px;
@@ -94,7 +92,12 @@
       border-radius: 12px;
       cursor: pointer;
       width: 100%;
-      margin: 8px 0;
+      margin: 6px 0;
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-color);
     }
 
     .btn:disabled { opacity: 0.5; }
@@ -124,6 +127,8 @@
       cursor: pointer;
     }
 
+    .opt-btn:disabled { opacity: 0.4; }
+
     .feedback {
       margin-top: 12px;
       font-size: 15px;
@@ -134,7 +139,6 @@
     .correct { color: var(--accent-color); }
     .wrong { color: var(--error-color); }
 
-    /* Тюнер / Пение */
     .pitch-indicator {
       font-size: 36px;
       font-weight: bold;
@@ -162,24 +166,39 @@
       transition: left 0.1s ease-out, background 0.2s;
     }
 
-    /* Энциклопедия */
+    /* Стили Энциклопедии */
+    .wiki-section-title {
+      font-size: 16px;
+      font-weight: bold;
+      text-align: left;
+      margin: 20px 0 10px 0;
+      color: var(--btn-color);
+      border-bottom: 1px solid rgba(255,255,255,0.2);
+      padding-bottom: 4px;
+    }
     .wiki-item {
       text-align: left;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
-      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 10px 0;
     }
     .wiki-item:last-child { border-bottom: none; }
-    .wiki-title { font-weight: bold; font-size: 15px; color: var(--btn-color); }
-    .wiki-desc { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+    .wiki-title { font-weight: bold; font-size: 14px; color: var(--text-color); }
+    .wiki-desc { font-size: 13px; opacity: 0.8; margin-top: 2px; line-height: 1.3; }
   </style>
 </head>
 <body>
 
+  <!-- ВКЛАДКА 1: Сравнение -->
   <div id="tab-compare" class="tab-content active">
     <div class="card">
       <h2>⚖️ Сравнение интервалов</h2>
       <p>Прослушайте два интервала и определите, какой из них <b>шире</b>.</p>
-      <button class="btn" onclick="playCompare()">▶ Проиграть пару</button>
+      
+      <div class="grid-2">
+        <button class="btn btn-secondary" id="repeatCompareBtn" onclick="repeatCompare()" disabled>🔁 Повторить</button>
+        <button class="btn" onclick="nextCompare()">⏭ Следующий</button>
+      </div>
+
       <div class="grid-2">
         <button class="opt-btn" id="comp1" onclick="checkCompare(1)" disabled>1-й шире</button>
         <button class="opt-btn" id="comp2" onclick="checkCompare(2)" disabled>2-й шире</button>
@@ -188,21 +207,27 @@
     </div>
   </div>
 
+  <!-- ВКЛАДКА 2: Определение -->
   <div id="tab-identify" class="tab-content">
     <div class="card">
       <h2>👂 Определение интервала</h2>
       <p>Прослушайте интервал и угадайте его название.</p>
-      <button class="btn" onclick="playIdentify()">▶ Проиграть интервал</button>
-      <div class="grid-3" id="identify-options">
-        </div>
+      
+      <div class="grid-2">
+        <button class="btn btn-secondary" id="repeatIdentifyBtn" onclick="repeatIdentify()" disabled>🔁 Повторить</button>
+        <button class="btn" onclick="nextIdentify()">⏭ Следующий</button>
+      </div>
+
+      <div class="grid-3" id="identify-options"></div>
       <div class="feedback" id="fb-identify"></div>
     </div>
   </div>
 
+  <!-- ВКЛАДКА 3: Пропевание ноты -->
   <div id="tab-sing" class="tab-content">
     <div class="card">
       <h2>🎤 Пропевание ноты</h2>
-      <p>Нажмите «Задать ноту», прослушайте эталон и спойте его в микрофон.</p>
+      <p>Задайте ноту, прослушайте эталон и спойте его в микрофон.</p>
       <button class="btn" onclick="generateTargetNote()">🎵 Задать новую ноту</button>
       
       <div class="pitch-indicator" id="targetNoteDisplay">--</div>
@@ -216,14 +241,15 @@
     </div>
   </div>
 
+  <!-- ВКЛАДКА 4: Энциклопедия ЭТМ -->
   <div id="tab-wiki" class="tab-content">
     <div class="card">
       <h2>📚 Энциклопедия ЭТМ</h2>
-      <p>Краткий справочник по интервалам в полутонах:</p>
       <div id="wiki-list"></div>
     </div>
   </div>
 
+  <!-- Навигация -->
   <div class="nav-bar">
     <div class="nav-item active" onclick="switchTab('compare', this)">
       <span class="nav-icon">⚖️</span>
@@ -250,7 +276,6 @@
 
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-    // Таблица интервалов
     const INTERVALS = [
       { name: "Малая секунда", semitones: 1 },
       { name: "Большая секунда", semitones: 2 },
@@ -266,9 +291,17 @@
       { name: "Чистая октава", semitones: 12 }
     ];
 
+    const CHORDS_WIKI = [
+      { name: "Мажорное трезвучие (Major)", structure: "б.3 + м.3 (4 + 3 полутона)", desc: "Строится из большой терции в основании и малой терции наверх. Чистая квинта между крайними звуками." },
+      { name: "Минорное трезвучие (Minor)", structure: "м.3 + б.3 (3 + 4 полутона)", desc: "Строится из малой терции в основании и большой терции наверх." },
+      { name: "Уменьшенное трезвучие (Diminished)", structure: "м.3 + м.3 (3 + 3 полутона)", desc: "Состоит из двух малых терций. Содержит уменьшенную квинту (тритон) между крайними звуками." },
+      { name: "Увеличенное трезвучие (Augmented)", structure: "б.3 + б.3 (4 + 4 полутона)", desc: "Состоит из двух больших терций. Содержит увеличенную квинту между крайними звуками." },
+      { name: "Малый мажорный септаккорд (Dominant 7th)", structure: "б.3 + м.3 + м.3 (б.3 + ч.5 + м.7)", desc: "Мажорное трезвучие + малая септима от основного тона. Один из самых частых аккордов в гармонии." },
+      { name: "Большой мажорный септаккорд (Major 7th)", structure: "б.3 + м.3 + б.3 (б.3 + ч.5 + б.7)", desc: "Мажорное трезвучие + большая септима от основного тона. Характерное мягкое, джазовое звучание." }
+    ];
+
     const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
-    // ---------------- Навигация ----------------
     function switchTab(tabId, el) {
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -276,7 +309,6 @@
       el.classList.add('active');
     }
 
-    // ---------------- Синтез звука ----------------
     function playTone(freq, start, duration) {
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
@@ -296,25 +328,38 @@
       playTone(freq2, start + 0.1, 0.8);
     }
 
-    // ---------------- 1. Сравнение ----------------
-    let widerIdx = 0;
-    function playCompare() {
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      document.getElementById('fb-compare').innerText = '';
-      
-      let s1 = Math.floor(Math.random() * 11) + 1;
-      let s2 = Math.floor(Math.random() * 11) + 1;
-      while (s1 === s2) s2 = Math.floor(Math.random() * 11) + 1;
+    // Сравнение
+    let widerIdx = 0, currentS1 = 0, currentS2 = 0;
 
-      widerIdx = s1 > s2 ? 1 : 2;
+    function playCompareAudio() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
       const now = audioCtx.currentTime;
-      playInterval(261.63, s1, now);
-      playInterval(261.63, s2, now + 1.2);
+      playInterval(261.63, currentS1, now);
+      playInterval(261.63, currentS2, now + 1.2);
 
       setTimeout(() => {
         document.getElementById('comp1').disabled = false;
         document.getElementById('comp2').disabled = false;
+        document.getElementById('repeatCompareBtn').disabled = false;
       }, 2000);
+    }
+
+    function nextCompare() {
+      document.getElementById('fb-compare').innerText = '';
+      document.getElementById('comp1').disabled = true;
+      document.getElementById('comp2').disabled = true;
+
+      currentS1 = Math.floor(Math.random() * 11) + 1;
+      currentS2 = Math.floor(Math.random() * 11) + 1;
+      while (currentS1 === currentS2) currentS2 = Math.floor(Math.random() * 11) + 1;
+
+      widerIdx = currentS1 > currentS2 ? 1 : 2;
+      playCompareAudio();
+    }
+
+    function repeatCompare() {
+      if (!currentS1 || !currentS2) return;
+      playCompareAudio();
     }
 
     function checkCompare(ans) {
@@ -330,16 +375,19 @@
       document.getElementById('comp2').disabled = true;
     }
 
-    // ---------------- 2. Определение ----------------
+    // Определение
     let currentTargetInterval = null;
-    function playIdentify() {
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-      document.getElementById('fb-identify').innerText = '';
-      
-      currentTargetInterval = INTERVALS[Math.floor(Math.random() * INTERVALS.length)];
-      playInterval(261.63, currentTargetInterval.semitones, audioCtx.currentTime);
 
-      // Генерируем 3 варианта ответа
+    function playIdentifyAudio() {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      playInterval(261.63, currentTargetInterval.semitones, audioCtx.currentTime);
+      document.getElementById('repeatIdentifyBtn').disabled = false;
+    }
+
+    function nextIdentify() {
+      document.getElementById('fb-identify').innerText = '';
+      currentTargetInterval = INTERVALS[Math.floor(Math.random() * INTERVALS.length)];
+      
       let options = [currentTargetInterval];
       while (options.length < 3) {
         let rand = INTERVALS[Math.floor(Math.random() * INTERVALS.length)];
@@ -365,17 +413,20 @@
         };
         container.appendChild(btn);
       });
+
+      playIdentifyAudio();
     }
 
-    // ---------------- 3. Пропевание ноты (Микрофон) ----------------
-    let isMicActive = false;
-    let micStream = null;
-    let pitchAnalyser = null;
-    let targetFreq = 261.63; // C4
+    function repeatIdentify() {
+      if (!currentTargetInterval) return;
+      playIdentifyAudio();
+    }
+
+    // Пропевание ноты
+    let isMicActive = false, micStream = null, pitchAnalyser = null, targetFreq = 261.63;
 
     function generateTargetNote() {
       if (audioCtx.state === 'suspended') audioCtx.resume();
-      // Выбираем случайную ноту от C3 до C5
       const midi = Math.floor(Math.random() * 24) + 48; 
       targetFreq = 440 * Math.pow(2, (midi - 69) / 12);
       
@@ -424,16 +475,15 @@
       const pitch = autoCorrelate(buf, audioCtx.sampleRate);
 
       if (pitch !== -1) {
-        // Считаем разницу в центах относительно целевой ноты
         const cents = 1200 * Math.log2(pitch / targetFreq);
-        let pointerPos = 50 + (cents / 2); // +- 100 центов
+        let pointerPos = 50 + (cents / 2);
         pointerPos = Math.max(0, Math.min(100, pointerPos));
 
         const pointer = document.getElementById('meterPointer');
         pointer.style.left = pointerPos + "%";
 
         if (Math.abs(cents) < 15) {
-          pointer.style.background = "#4cd964"; // Точно!
+          pointer.style.background = "#4cd964";
           document.getElementById('singStatus').innerText = "Идеально! ✨";
         } else if (cents < 0) {
           pointer.style.background = "#ffcc00";
@@ -447,13 +497,12 @@
       requestAnimationFrame(updatePitchLoop);
     }
 
-    // Алгоритм определения частоты (Autocorrelation)
     function autoCorrelate(buf, sampleRate) {
       let SIZE = buf.length;
       let rms = 0;
       for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
       rms = Math.sqrt(rms / SIZE);
-      if (rms < 0.01) return -1; // Слишком тихий звук
+      if (rms < 0.01) return -1;
 
       let r1 = 0, r2 = SIZE - 1, thres = 0.2;
       for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) { r1 = i; break; }
@@ -476,14 +525,37 @@
       return sampleRate / T0;
     }
 
-    // ---------------- 4. Энциклопедия ----------------
+    // Инициализация Энциклопедии
     function initWiki() {
       const container = document.getElementById('wiki-list');
+      container.innerHTML = '';
+
+      // Секция 1: Интервалы
+      const sec1 = document.createElement('div');
+      sec1.className = 'wiki-section-title';
+      sec1.innerText = '🎼 Простые интервалы';
+      container.appendChild(sec1);
+
       INTERVALS.forEach(i => {
         const item = document.createElement('div');
         item.className = 'wiki-item';
-        item.innerHTML = `<div class="wiki-title">${i.name} (${i.semitones} полутон.)</div>
-                          <div class="wiki-desc">Содержит ${i.semitones} полутонов. Отношение частот: 1 : 2^(${i.semitones}/12).</div>`;
+        item.innerHTML = `<div class="wiki-title">${i.name}</div>
+                          <div class="wiki-desc">Объем: <b>${i.semitones} полут.</b> (${i.semitones / 2} тон.)</div>`;
+        container.appendChild(item);
+      });
+
+      // Секция 2: Аккорды
+      const sec2 = document.createElement('div');
+      sec2.className = 'wiki-section-title';
+      sec2.innerText = '🎹 Аккорды и септаккорды';
+      container.appendChild(sec2);
+
+      CHORDS_WIKI.forEach(c => {
+        const item = document.createElement('div');
+        item.className = 'wiki-item';
+        item.innerHTML = `<div class="wiki-title">${c.name}</div>
+                          <div class="wiki-desc"><b>Состав:</b> ${c.structure}</div>
+                          <div class="wiki-desc">${c.desc}</div>`;
         container.appendChild(item);
       });
     }
