@@ -166,7 +166,7 @@
       transition: left 0.1s ease-out, background 0.2s;
     }
 
-    /* Стили Энциклопедии */
+    /* Энциклопедия */
     .wiki-section-title {
       font-size: 16px;
       font-weight: bold;
@@ -176,14 +176,35 @@
       border-bottom: 1px solid rgba(255,255,255,0.2);
       padding-bottom: 4px;
     }
+
     .wiki-item {
       text-align: left;
       border-bottom: 1px solid rgba(255,255,255,0.08);
-      padding: 10px 0;
+      padding: 12px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
     }
-    .wiki-item:last-child { border-bottom: none; }
-    .wiki-title { font-weight: bold; font-size: 14px; color: var(--text-color); }
-    .wiki-desc { font-size: 13px; opacity: 0.8; margin-top: 2px; line-height: 1.3; }
+
+    .wiki-item:active {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .wiki-title {
+      font-weight: bold;
+      font-size: 14px;
+      color: var(--text-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .wiki-desc {
+      font-size: 13px;
+      opacity: 0.8;
+      margin-top: 3px;
+      line-height: 1.3;
+    }
   </style>
 </head>
 <body>
@@ -245,6 +266,7 @@
   <div id="tab-wiki" class="tab-content">
     <div class="card">
       <h2>📚 Энциклопедия ЭТМ</h2>
+      <p style="font-size: 12px; margin-bottom: 10px;">💡 Нажмите на элемент, чтобы прослушать его звучание.</p>
       <div id="wiki-list"></div>
     </div>
   </div>
@@ -292,12 +314,12 @@
     ];
 
     const CHORDS_WIKI = [
-      { name: "Мажорное трезвучие (Major)", structure: "б.3 + м.3 (4 + 3 полутона)", desc: "Строится из большой терции в основании и малой терции наверх. Чистая квинта между крайними звуками." },
-      { name: "Минорное трезвучие (Minor)", structure: "м.3 + б.3 (3 + 4 полутона)", desc: "Строится из малой терции в основании и большой терции наверх." },
-      { name: "Уменьшенное трезвучие (Diminished)", structure: "м.3 + м.3 (3 + 3 полутона)", desc: "Состоит из двух малых терций. Содержит уменьшенную квинту (тритон) между крайними звуками." },
-      { name: "Увеличенное трезвучие (Augmented)", structure: "б.3 + б.3 (4 + 4 полутона)", desc: "Состоит из двух больших терций. Содержит увеличенную квинту между крайними звуками." },
-      { name: "Малый мажорный септаккорд (Dominant 7th)", structure: "б.3 + м.3 + м.3 (б.3 + ч.5 + м.7)", desc: "Мажорное трезвучие + малая септима от основного тона. Один из самых частых аккордов в гармонии." },
-      { name: "Большой мажорный септаккорд (Major 7th)", structure: "б.3 + м.3 + б.3 (б.3 + ч.5 + б.7)", desc: "Мажорное трезвучие + большая септима от основного тона. Характерное мягкое, джазовое звучание." }
+      { name: "Мажорное трезвучие (Major)", offsets: [0, 4, 7], structure: "б.3 + м.3 (4 + 3 полутона)", desc: "Строится из большой терции в основании и малой терции наверх." },
+      { name: "Минорное трезвучие (Minor)", offsets: [0, 3, 7], structure: "м.3 + б.3 (3 + 4 полутона)", desc: "Строится из малой терции в основании и большой терции наверх." },
+      { name: "Уменьшенное трезвучие (Diminished)", offsets: [0, 3, 6], structure: "м.3 + м.3 (3 + 3 полутона)", desc: "Состоит из двух малых терций. Содержит тритон." },
+      { name: "Увеличенное трезвучие (Augmented)", offsets: [0, 4, 8], structure: "б.3 + б.3 (4 + 4 полутона)", desc: "Состоит из двух больших терций." },
+      { name: "Малый мажорный септаккорд (Dominant 7th)", offsets: [0, 4, 7, 10], structure: "б.3 + м.3 + м.3 (б.3 + ч.5 + м.7)", desc: "Мажорное трезвучие + малая септима." },
+      { name: "Большой мажорный септаккорд (Major 7th)", offsets: [0, 4, 7, 11], structure: "б.3 + м.3 + б.3 (б.3 + ч.5 + б.7)", desc: "Мажорное трезвучие + большая септима." }
     ];
 
     const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
@@ -314,7 +336,7 @@
       const gain = audioCtx.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, start);
-      gain.gain.setValueAtTime(0.3, start);
+      gain.gain.setValueAtTime(0.25, start);
       gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
       osc.connect(gain);
       gain.connect(audioCtx.destination);
@@ -326,6 +348,15 @@
       const freq2 = baseFreq * Math.pow(2, semitones / 12);
       playTone(baseFreq, start, 0.8);
       playTone(freq2, start + 0.1, 0.8);
+    }
+
+    function playChord(baseFreq, offsets) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const now = audioCtx.currentTime;
+      offsets.forEach(offset => {
+        const freq = baseFreq * Math.pow(2, offset / 12);
+        playTone(freq, now, 1.2);
+      });
     }
 
     // Сравнение
@@ -539,7 +570,11 @@
       INTERVALS.forEach(i => {
         const item = document.createElement('div');
         item.className = 'wiki-item';
-        item.innerHTML = `<div class="wiki-title">${i.name}</div>
+        item.onclick = () => {
+          if (audioCtx.state === 'suspended') audioCtx.resume();
+          playInterval(261.63, i.semitones, audioCtx.currentTime);
+        };
+        item.innerHTML = `<div class="wiki-title"><span>${i.name}</span> <span>🔊</span></div>
                           <div class="wiki-desc">Объем: <b>${i.semitones} полут.</b> (${i.semitones / 2} тон.)</div>`;
         container.appendChild(item);
       });
@@ -553,7 +588,10 @@
       CHORDS_WIKI.forEach(c => {
         const item = document.createElement('div');
         item.className = 'wiki-item';
-        item.innerHTML = `<div class="wiki-title">${c.name}</div>
+        item.onclick = () => {
+          playChord(261.63, c.offsets);
+        };
+        item.innerHTML = `<div class="wiki-title"><span>${c.name}</span> <span>🔊</span></div>
                           <div class="wiki-desc"><b>Состав:</b> ${c.structure}</div>
                           <div class="wiki-desc">${c.desc}</div>`;
         container.appendChild(item);
