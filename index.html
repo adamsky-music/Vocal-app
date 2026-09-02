@@ -474,7 +474,7 @@
       <p>Прослушайте интервал и угадайте его название.</p>
 
       <div class="piano-wrapper">
-        <div class="piano-keyboard" id="pianoKeyboard"></div>
+        <div class="piano-keyboard" id="pianoKeyboard-id"></div>
       </div>
       
       <div class="grid-2">
@@ -512,6 +512,10 @@
       <h2>🎹 Слух: Аккорды</h2>
       <p>Прослушайте аккорд и угадайте его тип.</p>
       
+      <div class="piano-wrapper">
+        <div class="piano-keyboard" id="pianoKeyboard-chd"></div>
+      </div>
+
       <div class="grid-2">
         <button class="btn btn-secondary" id="repeatChordBtn" onclick="repeatChord()" disabled>🔁 Повторить</button>
         <button class="btn" onclick="nextChord()">⏭ Следующий</button>
@@ -604,14 +608,13 @@
     const userId = user.id;
     const userName = (user.first_name + " " + (user.last_name || "")).trim() || "Аноним";
 
-    // ИНИЦИАЛИЗАЦИЯ И РАЗБЛОКИРОВКА WEB AUDIO API (iOS / SAFARI UNLOCKER)
+    // ИНИЦИАЛИЗАЦИЯ И РАЗБЛОКИРОВКА WEB AUDIO API
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     const audioCtx = new AudioContextClass();
 
     function unlockAudioContext() {
       if (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted') {
         audioCtx.resume().then(() => {
-          // Воспроизводим тихий короткий импульс для окончательной разблокировки Safari
           const buffer = audioCtx.createBuffer(1, 1, 22050);
           const source = audioCtx.createBufferSource();
           source.buffer = buffer;
@@ -621,10 +624,22 @@
       }
     }
 
-    // Привязываем разблокировку к первому тапу/клику по любому месту
     ['touchstart', 'touchend', 'mousedown', 'keydown'].forEach(eventName => {
       document.addEventListener(eventName, unlockAudioContext, { once: true });
     });
+
+    // Массив активных звуковых узлов для мгновенной отмены (stop/disconnect)
+    let activeAudioNodes = [];
+
+    function stopAllActiveAudio() {
+      activeAudioNodes.forEach(node => {
+        try {
+          if (node.stop) node.stop();
+          if (node.disconnect) node.disconnect();
+        } catch (e) {}
+      });
+      activeAudioNodes = [];
+    }
 
     let scores = { rhythm: 0, cmp: 0, id: 0, chd: 0, sing: 0 };
     let highScores = {
@@ -730,6 +745,7 @@
         osc.connect(gain);
         osc.start(start);
         osc.stop(start + duration);
+        activeAudioNodes.push(osc);
       } 
       else if (soundType === 'filtered-saw') {
         const osc = audioCtx.createOscillator();
@@ -749,6 +765,7 @@
         filter.connect(gain);
         osc.start(start);
         osc.stop(start + duration);
+        activeAudioNodes.push(osc);
       }
       else if (soundType === 'fm') {
         const carrier = audioCtx.createOscillator();
@@ -775,6 +792,7 @@
         carrier.start(start);
         modulator.stop(start + duration);
         carrier.stop(start + duration);
+        activeAudioNodes.push(carrier, modulator);
       }
     }
 
@@ -793,6 +811,7 @@
         gain.connect(audioCtx.destination);
         osc.start(start);
         osc.stop(start + 0.05);
+        activeAudioNodes.push(osc);
       }
       else if (drumType === 'kick') {
         const osc = audioCtx.createOscillator();
@@ -806,6 +825,7 @@
         gain.connect(audioCtx.destination);
         osc.start(start);
         osc.stop(start + 0.12);
+        activeAudioNodes.push(osc);
       }
       else if (drumType === 'snare') {
         const osc = audioCtx.createOscillator();
@@ -819,6 +839,7 @@
         oscGain.connect(audioCtx.destination);
         osc.start(start);
         osc.stop(start + 0.1);
+        activeAudioNodes.push(osc);
 
         const bufferSize = audioCtx.sampleRate * 0.15;
         const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
@@ -839,6 +860,7 @@
         filter.connect(noiseGain);
         noiseGain.connect(audioCtx.destination);
         noise.start(start);
+        activeAudioNodes.push(noise);
       }
       else if (drumType === 'hihat') {
         const bufferSize = audioCtx.sampleRate * 0.05;
@@ -860,6 +882,7 @@
         filter.connect(gain);
         gain.connect(audioCtx.destination);
         noise.start(start);
+        activeAudioNodes.push(noise);
       }
       else if (drumType === 'rimshot') {
         const osc = audioCtx.createOscillator();
@@ -873,15 +896,18 @@
         gain.connect(audioCtx.destination);
         osc.start(start);
         osc.stop(start + 0.025);
+        activeAudioNodes.push(osc);
       }
     }
 
-    function playInterval(baseFreq, semitones, start, soundType = 'triangle', harmonic = false) {
+    function playInterval(baseFreq, semitones, start, soundType = 'triangle', harmonic = false, highlightPiano = false, containerId = 'pianoKeyboard-id') {
       unlockAudioContext();
       const freq2 = baseFreq * Math.pow(2, semitones / 12);
       
-      highlightPianoKeyByFreq(baseFreq, start, harmonic ? 1.0 : 0.8);
-      highlightPianoKeyByFreq(freq2, harmonic ? start : start + 0.1, 0.8);
+      if (highlightPiano) {
+        highlightPianoKeyByFreq(baseFreq, start, harmonic ? 1.0 : 0.8, containerId);
+        highlightPianoKeyByFreq(freq2, harmonic ? start : start + 0.1, 0.8, containerId);
+      }
 
       if (harmonic) {
         playTone(baseFreq, start, 1.0, soundType);
@@ -892,12 +918,14 @@
       }
     }
 
-    function playChordAudio(baseFreq, offsets, soundType = 'triangle') {
+    function playChordAudio(baseFreq, offsets, soundType = 'triangle', highlightPiano = false, containerId = 'pianoKeyboard-chd') {
       unlockAudioContext();
       const now = audioCtx.currentTime;
       offsets.forEach(offset => {
         const freq = baseFreq * Math.pow(2, offset / 12);
-        highlightPianoKeyByFreq(freq, now, 1.2);
+        if (highlightPiano) {
+          highlightPianoKeyByFreq(freq, now, 1.2, containerId);
+        }
         playTone(freq, now, 1.2, soundType);
       });
     }
@@ -932,6 +960,8 @@
 
     function switchTab(tabId, el) {
       triggerHaptic('light');
+      stopAllActiveAudio();
+      stopRhythmTimers();
       unlockAudioContext();
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -940,8 +970,8 @@
     }
 
     // ---------------- РЕНДЕР И ИНТЕРАКТИВ ПИАНИНО ----------------
-    function buildPianoKeyboard() {
-      const container = document.getElementById('pianoKeyboard');
+    function buildPianoKeyboard(containerId) {
+      const container = document.getElementById(containerId);
       if (!container) return;
       container.innerHTML = '';
 
@@ -970,16 +1000,26 @@
       }
     }
 
-    function highlightPianoKeyByFreq(freq, startTime, duration = 0.8) {
+    let activePianoTimeouts = [];
+
+    function highlightPianoKeyByFreq(freq, startTime, duration = 1.2, containerId = 'pianoKeyboard-id') {
       const midi = Math.round(69 + 12 * Math.log2(freq / 440));
-      const keyEl = document.querySelector(`.piano-key[data-midi="${midi}"]`);
+      const keyEl = document.querySelector(`#${containerId} .piano-key[data-midi="${midi}"]`);
       if (!keyEl) return;
 
       const delayMs = Math.max(0, (startTime - audioCtx.currentTime) * 1000);
-      setTimeout(() => {
+      const t1 = setTimeout(() => {
         keyEl.classList.add('active');
-        setTimeout(() => keyEl.classList.remove('active'), duration * 1000);
+        const t2 = setTimeout(() => keyEl.classList.remove('active'), duration * 1000);
+        activePianoTimeouts.push(t2);
       }, delayMs);
+      activePianoTimeouts.push(t1);
+    }
+
+    function clearPianoHighlights() {
+      activePianoTimeouts.forEach(t => clearTimeout(t));
+      activePianoTimeouts = [];
+      document.querySelectorAll('.piano-key').forEach(k => k.classList.remove('active'));
     }
 
     // ---------------- 1. РИТМИЧЕСКИЙ ТРЕНАЖЕР ----------------
@@ -993,8 +1033,24 @@
     let rhythmAnimFrame = null;
     let lastClapTime = 0;
 
+    let activeRhythmTimers = [];
+
     let currentBPM = 80;
     let Q_TIME = 60 / currentBPM;
+
+    function stopRhythmTimers() {
+      activeRhythmTimers.forEach(t => {
+        clearInterval(t);
+        clearTimeout(t);
+      });
+      activeRhythmTimers = [];
+      isRhythmMicActive = false;
+      if (rhythmAnimFrame) cancelAnimationFrame(rhythmAnimFrame);
+      document.getElementById('micLevelFill').style.width = "0%";
+      document.getElementById('metroCircle').className = "metro-circle";
+      document.getElementById('metroCircle').innerText = "1";
+      document.getElementById('repeatRhythmBtn').disabled = false;
+    }
 
     function updateBpmValue(val) {
       currentBPM = Number(val);
@@ -1097,9 +1153,10 @@
       const circle = document.getElementById('metroCircle');
       circle.innerText = text;
       circle.className = isAccent ? "metro-circle accent-beat" : "metro-circle active-beat";
-      setTimeout(() => {
+      const t = setTimeout(() => {
         circle.className = "metro-circle";
       }, 140);
+      activeRhythmTimers.push(t);
     }
 
     async function initRhythmMicrophone() {
@@ -1148,6 +1205,9 @@
     async function startRhythmFlow() {
       triggerHaptic('light');
       unlockAudioContext();
+      stopAllActiveAudio();
+      stopRhythmTimers();
+
       document.getElementById('repeatRhythmBtn').disabled = true;
       document.getElementById('fb-rhythm').innerText = "Слушайте образец...";
       document.getElementById('fb-rhythm').className = "feedback";
@@ -1162,7 +1222,7 @@
         playDrumHit(audioStartTime + t, drumType);
       });
 
-      setTimeout(() => {
+      const tPre = setTimeout(() => {
         document.getElementById('fb-rhythm').innerText = "Приготовьтесь! Отсчет 1-2-3-4...";
         
         let preCountStep = 1;
@@ -1175,8 +1235,10 @@
             runRhythmRecordingSection();
           }
         }, Q_TIME * 1000);
+        activeRhythmTimers.push(precountInterval);
 
       }, (4 * Q_TIME + 0.2) * 1000);
+      activeRhythmTimers.push(tPre);
     }
 
     function runRhythmRecordingSection() {
@@ -1196,14 +1258,16 @@
           clearInterval(recordMetroInterval);
         }
       }, Q_TIME * 1000);
+      activeRhythmTimers.push(recordMetroInterval);
 
-      setTimeout(() => {
+      const tEval = setTimeout(() => {
         isRhythmMicActive = false;
         if (rhythmAnimFrame) cancelAnimationFrame(rhythmAnimFrame);
         document.getElementById('micLevelFill').style.width = "0%";
         document.getElementById('repeatRhythmBtn').disabled = false;
         evaluateMicRhythm();
       }, 4 * Q_TIME * 1000 + 300);
+      activeRhythmTimers.push(tEval);
     }
 
     function evaluateMicRhythm() {
@@ -1261,6 +1325,8 @@
 
     function nextRhythm() {
       triggerHaptic('light');
+      stopAllActiveAudio();
+      stopRhythmTimers();
       document.getElementById('fb-rhythm').innerText = '';
       currentRhythmPattern = generateRhythmPattern();
       const notStr = currentRhythmPattern.map(p => p.notation).join(' ');
@@ -1268,15 +1334,22 @@
       startRhythmFlow();
     }
 
-    // 2. Сравнение
+    // 2. СРАВНЕНИЕ ИНТЕРВАЛОВ
     let widerIdx = 0, currentS1 = 0, currentS2 = 0;
+    let compareAudioTimeout = null;
+
     function playCompareAudio() {
       unlockAudioContext();
+      stopAllActiveAudio();
+      clearPianoHighlights();
+      if (compareAudioTimeout) clearTimeout(compareAudioTimeout);
+
       const now = audioCtx.currentTime;
       const st = document.getElementById('soundType-cmp').value;
-      playInterval(261.63, currentS1, now, st);
-      playInterval(261.63, currentS2, now + 1.2, st);
-      setTimeout(() => {
+      playInterval(261.63, currentS1, now, st, false, false);
+      playInterval(261.63, currentS2, now + 1.2, st, false, false);
+
+      compareAudioTimeout = setTimeout(() => {
         document.getElementById('comp1').disabled = false;
         document.getElementById('comp2').disabled = false;
         document.getElementById('repeatCompareBtn').disabled = false;
@@ -1285,6 +1358,8 @@
 
     function nextCompare() {
       triggerHaptic('light');
+      stopAllActiveAudio();
+      clearPianoHighlights();
       document.getElementById('fb-compare').innerText = '';
       document.getElementById('comp1').disabled = true;
       document.getElementById('comp2').disabled = true;
@@ -1314,7 +1389,7 @@
       document.getElementById('comp2').disabled = true;
     }
 
-    // 3. Определение интервалов
+    // 3. ОПРЕДЕЛЕНИЕ ИНТЕРВАЛОВ (ПОДСВЕТКА ТОЛЬКО ПОСЛЕ ОТВЕТА)
     let currentTargetInterval = null;
     let isHarmonicInterval = false;
 
@@ -1347,15 +1422,26 @@
       return { available, isHarmonic };
     }
 
-    function playIdentifyAudio() {
+    function playIdentifyAudio(highlightKeys = false) {
       unlockAudioContext();
+      stopAllActiveAudio();
+      if (!highlightKeys) clearPianoHighlights();
       const st = document.getElementById('soundType-id').value;
-      playInterval(261.63, currentTargetInterval.semitones, audioCtx.currentTime, st, isHarmonicInterval);
+      playInterval(261.63, currentTargetInterval.semitones, audioCtx.currentTime, st, isHarmonicInterval, highlightKeys, 'pianoKeyboard-id');
       document.getElementById('repeatIdentifyBtn').disabled = false;
+    }
+
+    function showIntervalPianoHint() {
+      const baseFreq = 261.63; // C4
+      const freq2 = baseFreq * Math.pow(2, currentTargetInterval.semitones / 12);
+      highlightPianoKeyByFreq(baseFreq, audioCtx.currentTime, 2.5, 'pianoKeyboard-id');
+      highlightPianoKeyByFreq(freq2, audioCtx.currentTime, 2.5, 'pianoKeyboard-id');
     }
 
     function nextIdentify() {
       triggerHaptic('light');
+      stopAllActiveAudio();
+      clearPianoHighlights();
       document.getElementById('fb-identify').innerText = '';
       const { available, isHarmonic } = getAvailableIntervals();
       isHarmonicInterval = isHarmonic;
@@ -1375,6 +1461,7 @@
         btn.className = 'opt-btn';
         btn.innerText = opt.name;
         btn.onclick = () => {
+          showIntervalPianoHint();
           const fb = document.getElementById('fb-identify');
           if (opt.semitones === currentTargetInterval.semitones) {
             fb.innerText = "Верно! +10 очков 👏";
@@ -1391,22 +1478,35 @@
         container.appendChild(btn);
       });
 
-      playIdentifyAudio();
+      playIdentifyAudio(false);
     }
 
-    function repeatIdentify() { triggerHaptic('light'); if (currentTargetInterval) playIdentifyAudio(); }
+    function repeatIdentify() { triggerHaptic('light'); if (currentTargetInterval) playIdentifyAudio(false); }
 
-    // 4. Определение аккордов
+    // 4. ОПРЕДЕЛЕНИЕ АККОРДОВ (С КЛАВИАТУРОЙ И ПОДСВЕТКОЙ ПОСЛЕ ОТВЕТА)
     let currentTargetChord = null;
-    function playChordGameAudio() {
+
+    function playChordGameAudio(highlightKeys = false) {
       unlockAudioContext();
+      stopAllActiveAudio();
+      if (!highlightKeys) clearPianoHighlights();
       const st = document.getElementById('soundType-chd').value;
-      playChordAudio(261.63, currentTargetChord.offsets, st);
+      playChordAudio(261.63, currentTargetChord.offsets, st, highlightKeys, 'pianoKeyboard-chd');
       document.getElementById('repeatChordBtn').disabled = false;
+    }
+
+    function showChordPianoHint() {
+      const baseFreq = 261.63; // C4
+      currentTargetChord.offsets.forEach(offset => {
+        const freq = baseFreq * Math.pow(2, offset / 12);
+        highlightPianoKeyByFreq(freq, audioCtx.currentTime, 2.5, 'pianoKeyboard-chd');
+      });
     }
 
     function nextChord() {
       triggerHaptic('light');
+      stopAllActiveAudio();
+      clearPianoHighlights();
       document.getElementById('fb-chord').innerText = '';
       currentTargetChord = CHORDS[Math.floor(Math.random() * CHORDS.length)];
       
@@ -1424,6 +1524,7 @@
         btn.className = 'opt-btn';
         btn.innerText = opt.name;
         btn.onclick = () => {
+          showChordPianoHint();
           const fb = document.getElementById('fb-chord');
           if (opt.name === currentTargetChord.name) {
             fb.innerText = "Правильно! +10 очков 🎹";
@@ -1440,10 +1541,10 @@
         container.appendChild(btn);
       });
 
-      playChordGameAudio();
+      playChordGameAudio(false);
     }
 
-    function repeatChord() { triggerHaptic('light'); if (currentTargetChord) playChordGameAudio(); }
+    function repeatChord() { triggerHaptic('light'); if (currentTargetChord) playChordGameAudio(false); }
 
     // 5. ПРОПЕВАНИЕ НОТЫ
     let isMicActive = false, micStream = null, pitchAnalyser = null, targetFreq = 261.63;
@@ -1461,6 +1562,7 @@
     function generateTargetNote() {
       triggerHaptic('light');
       unlockAudioContext();
+      stopAllActiveAudio();
       isNoteCompleted = false;
       resetHoldVisuals();
 
@@ -1477,6 +1579,7 @@
     function repeatTargetNote() {
       triggerHaptic('light');
       unlockAudioContext();
+      stopAllActiveAudio();
       if (targetFreq) {
         playTone(targetFreq, audioCtx.currentTime, 1.2, 'triangle');
       }
@@ -1595,7 +1698,7 @@
       INTERVALS.forEach(i => {
         const item = document.createElement('div');
         item.className = 'wiki-item';
-        item.onclick = () => { triggerHaptic('light'); unlockAudioContext(); playInterval(261.63, i.semitones, audioCtx.currentTime, 'triangle'); };
+        item.onclick = () => { triggerHaptic('light'); unlockAudioContext(); stopAllActiveAudio(); playInterval(261.63, i.semitones, audioCtx.currentTime, 'triangle', false, false); };
         item.innerHTML = `<div class="wiki-title"><span>${i.name}</span> <span>🔊</span></div><div class="wiki-desc">Объем: <b>${i.semitones} полут.</b></div>`;
         container.appendChild(item);
       });
@@ -1608,13 +1711,14 @@
       CHORDS.forEach(c => {
         const item = document.createElement('div');
         item.className = 'wiki-item';
-        item.onclick = () => { triggerHaptic('light'); unlockAudioContext(); playChordAudio(261.63, c.offsets, 'triangle'); };
+        item.onclick = () => { triggerHaptic('light'); unlockAudioContext(); stopAllActiveAudio(); playChordAudio(261.63, c.offsets, 'triangle', false); };
         item.innerHTML = `<div class="wiki-title"><span>${c.name}</span> <span>🔊</span></div><div class="wiki-desc"><b>Состав:</b> ${c.structure} (${c.desc})</div>`;
         container.appendChild(item);
       });
     }
 
-    buildPianoKeyboard();
+    buildPianoKeyboard('pianoKeyboard-id');
+    buildPianoKeyboard('pianoKeyboard-chd');
     initWiki();
     updateScoreDisplays();
     fetchAllLeaderboards();
