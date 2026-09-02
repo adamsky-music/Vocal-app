@@ -96,14 +96,16 @@
       border: 1px solid rgba(255,255,255,0.08);
     }
 
-    .sound-selector select {
+    .sound-selector select, .theory-select {
       background: var(--card-bg);
       color: var(--text-color);
       border: 1px solid rgba(255,255,255,0.2);
-      padding: 4px 8px;
-      border-radius: 6px;
-      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 13px;
       outline: none;
+      width: 100%;
+      margin-bottom: 8px;
     }
 
     .tempo-control {
@@ -137,6 +139,7 @@
     }
 
     .btn-secondary { background: rgba(255, 255, 255, 0.1); color: var(--text-color); }
+    .btn:disabled, .opt-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
     .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 6px; }
@@ -162,9 +165,9 @@
 
     .hold-timer-box { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 6px 0; min-height: 28px; }
     .hold-circle { width: 20px; height: 20px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.2); transition: all 0.2s ease; }
-    .hold-circle.step-1 { background: #ff3b30; border-color: #ff3b30; box-shadow: 0 0 10px rgba(255, 59, 48, 0.6); }
-    .hold-circle.step-2 { background: #ffcc00; border-color: #ffcc00; box-shadow: 0 0 10px rgba(255, 204, 0, 0.6); }
-    .hold-circle.step-3 { background: #4cd964; border-color: #4cd964; box-shadow: 0 0 12px rgba(76, 217, 100, 0.8); }
+    .hold-circle.step-1 { background: #ff3b30; border-color: #ff3b30; }
+    .hold-circle.step-2 { background: #ffcc00; border-color: #ffcc00; }
+    .hold-circle.step-3 { background: #4cd964; border-color: #4cd964; }
 
     .rhythm-display { font-size: 24px; letter-spacing: 4px; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; margin: 8px 0; font-family: monospace; border: 1px solid rgba(255,255,255,0.1); }
 
@@ -177,22 +180,34 @@
     .piano-key.black.active { background: #3390ec !important; }
 
     .metronome-box { display: flex; flex-direction: column; align-items: center; margin: 10px 0; }
-    .metro-circle { width: 64px; height: 64px; border-radius: 50%; background: rgba(255, 255, 255, 0.05); border: 3px solid rgba(255, 255, 255, 0.2); display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; color: var(--text-color); transition: background 0.08s, transform 0.08s; }
+    .metro-circle { width: 60px; height: 60px; border-radius: 50%; background: rgba(255, 255, 255, 0.05); border: 2px solid rgba(255, 255, 255, 0.2); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; color: var(--text-color); transition: background 0.08s, transform 0.08s; }
+    .metro-circle.active-beat { background: rgba(76, 217, 100, 0.35); border-color: #4cd964; transform: scale(1.08); }
 
-    /* ВЫПЛЫВАЮЩИЙ СПИСОК (ТЕОРИЯ) */
-    .wiki-section-title { font-size: 14px; font-weight: bold; text-align: left; margin: 14px 0 6px 0; color: var(--btn-color); border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 4px; }
-    .accordion-item { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; margin-bottom: 6px; overflow: hidden; text-align: left; }
-    .accordion-header { padding: 10px 12px; font-weight: bold; font-size: 13px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
-    .accordion-header:active { background: rgba(255,255,255,0.08); }
-    .accordion-body { display: none; padding: 10px 12px; background: rgba(0,0,0,0.2); font-size: 12px; border-top: 1px solid rgba(255,255,255,0.05); }
-    .accordion-body b { color: var(--btn-color); }
-
-    .flashcard { background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.2); border-radius: 12px; padding: 14px; margin-bottom: 14px; cursor: pointer; text-align: center; }
+    .theory-box { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px; margin-top: 6px; text-align: left; font-size: 12px; }
   </style>
 </head>
 <body>
 
-  <div id="tab-tuner" class="tab-content active">
+  <!-- ВКЛАДКА 1: Сравнение (ПО УМОЛЧАНИЮ ПЕРВАЯ) -->
+  <div id="tab-compare" class="tab-content active">
+    <div class="card">
+      <div class="score-banner"><span>Счет: <b id="score-cmp">0</b></span><span>Рекорд: <b id="hs-cmp">0</b></span></div>
+      <h2>⚖️ Сравнение интервалов</h2>
+      <p>Определите, какой из двух интервалов <b>шире</b>.</p>
+      <div class="grid-2">
+        <button class="btn btn-secondary" onclick="repeatCompare()">🔁 Повторить</button>
+        <button class="btn" onclick="nextCompare()">⏭ Следующий</button>
+      </div>
+      <div class="grid-2" style="margin-top:10px;">
+        <button class="opt-btn" id="compBtn1" onclick="checkCompare(1)" disabled>1-й шире</button>
+        <button class="opt-btn" id="compBtn2" onclick="checkCompare(2)" disabled>2-й шире</button>
+      </div>
+      <div class="feedback" id="fb-compare"></div>
+    </div>
+  </div>
+
+  <!-- ВКЛАДКА 2: Тюнер -->
+  <div id="tab-tuner" class="tab-content">
     <div class="card">
       <h2>🎸 Тюнер инструментов</h2>
       <div class="sound-selector">
@@ -215,6 +230,7 @@
     </div>
   </div>
 
+  <!-- ВКЛАДКА 3: Ритм -->
   <div id="tab-rhythm" class="tab-content">
     <div class="card">
       <div class="score-banner"><span>Счет: <b id="score-rhythm">0</b></span><span>Рекорд: <b id="hs-rhythm">0</b></span></div>
@@ -225,34 +241,18 @@
       </div>
 
       <h2>🥁 Ритмический тренажер</h2>
-      <div class="rhythm-display">♩ ♩ 𝄽 ♩</div>
+      <div class="rhythm-display" id="rhythmNotations">♩ ♩ 𝄽 ♩</div>
       <div class="metronome-box"><div class="metro-circle" id="metroCircle">1</div></div>
 
       <div class="grid-2">
-        <button class="btn btn-secondary" onclick="playRhythmSample()">🔁 Послушать</button>
+        <button class="btn btn-secondary" id="repeatRhythmBtn" onclick="startRhythmFlow()">🔁 Послушать</button>
         <button class="btn" onclick="nextRhythm()">⏭ Новый ритм</button>
       </div>
       <div class="feedback" id="fb-rhythm"></div>
     </div>
   </div>
 
-  <div id="tab-compare" class="tab-content">
-    <div class="card">
-      <div class="score-banner"><span>Счет: <b id="score-cmp">0</b></span><span>Рекорд: <b id="hs-cmp">0</b></span></div>
-      <h2>⚖️ Сравнение интервалов</h2>
-      <p>Определите, какой из двух интервалов <b>шире</b>.</p>
-      <div class="grid-2">
-        <button class="btn btn-secondary" onclick="repeatCompare()">🔁 Повторить</button>
-        <button class="btn" onclick="nextCompare()">⏭ Следующий</button>
-      </div>
-      <div class="grid-2">
-        <button class="opt-btn" onclick="checkCompare(1)">1-й шире</button>
-        <button class="opt-btn" onclick="checkCompare(2)">2-й шире</button>
-      </div>
-      <div class="feedback" id="fb-compare"></div>
-    </div>
-  </div>
-
+  <!-- ВКЛАДКА 4: Интервалы -->
   <div id="tab-identify" class="tab-content">
     <div class="card">
       <div class="score-banner"><span>Счет: <b id="score-id">0</b></span><span>Рекорд: <b id="hs-id">0</b></span></div>
@@ -275,6 +275,7 @@
     </div>
   </div>
 
+  <!-- ВКЛАДКА 5: Аккорды -->
   <div id="tab-chords" class="tab-content">
     <div class="card">
       <div class="score-banner"><span>Счет: <b id="score-chd">0</b></span><span>Рекорд: <b id="hs-chd">0</b></span></div>
@@ -289,6 +290,7 @@
     </div>
   </div>
 
+  <!-- ВКЛАДКА 6: Пение -->
   <div id="tab-sing" class="tab-content">
     <div class="card">
       <div class="score-banner"><span>Счет: <b id="score-sing">0</b></span><span>Рекорд: <b id="hs-sing">0</b></span></div>
@@ -312,30 +314,36 @@
     </div>
   </div>
 
+  <!-- ВКЛАДКА 7: Теория -->
   <div id="tab-wiki" class="tab-content">
     <div class="card">
-      <h2>📚 Флэш-карточки</h2>
-      <div class="flashcard" onclick="flipFlashcard()">
-        <div id="fc-title" style="font-weight:bold; font-size:13px;">Нажмите, чтобы открыть карточку</div>
-        <div id="fc-desc" style="display:none; margin-top:8px; font-size:12px; opacity:0.9;">Пояснение появится здесь.</div>
-      </div>
-      <button class="btn btn-secondary" onclick="nextFlashcard()">⏭ Следующая карточка</button>
-
-      <h2>📖 Справочник ЭТМ</h2>
-      <p>Выберите элемент из выплывающего списка, чтобы посмотреть состав и услышать звучание:</p>
+      <h2>📖 Справочник Теории</h2>
       
-      <div class="wiki-section-title">🎼 Интервалы</div>
-      <div id="wiki-intervals-list"></div>
+      <p style="text-align:left; font-weight:bold; margin-bottom:4px;">🎼 Выберите Интервал:</p>
+      <select class="theory-select" id="theoryIntervalSelect" onchange="updateTheoryIntervalInfo()">
+        <!-- Заполняется JS -->
+      </select>
+      <div class="theory-box" id="theoryIntervalBox">
+        <div id="theoryIntervalDesc">--</div>
+        <button class="btn btn-secondary" style="margin-top:8px;" onclick="playTheoryInterval()">🔊 Послушать интервал</button>
+      </div>
 
-      <div class="wiki-section-title">🎹 Аккорды</div>
-      <div id="wiki-chords-list"></div>
+      <p style="text-align:left; font-weight:bold; margin-bottom:4px; margin-top:16px;">🎹 Выберите Аккорд:</p>
+      <select class="theory-select" id="theoryChordSelect" onchange="updateTheoryChordInfo()">
+        <!-- Заполняется JS -->
+      </select>
+      <div class="theory-box" id="theoryChordBox">
+        <div id="theoryChordDesc">--</div>
+        <button class="btn btn-secondary" style="margin-top:8px;" onclick="playTheoryChord()">🔊 Послушать аккорд</button>
+      </div>
     </div>
   </div>
 
+  <!-- Панель Навигации -->
   <div class="nav-bar">
-    <div class="nav-item active" onclick="switchTab('tuner', this)"><span class="nav-icon">🎸</span><span>Тюнер</span></div>
+    <div class="nav-item active" onclick="switchTab('compare', this)"><span class="nav-icon">⚖️</span><span>Сравнение</span></div>
+    <div class="nav-item" onclick="switchTab('tuner', this)"><span class="nav-icon">🎸</span><span>Тюнер</span></div>
     <div class="nav-item" onclick="switchTab('rhythm', this)"><span class="nav-icon">🥁</span><span>Ритм</span></div>
-    <div class="nav-item" onclick="switchTab('compare', this)"><span class="nav-icon">⚖️</span><span>Сравнение</span></div>
     <div class="nav-item" onclick="switchTab('identify', this)"><span class="nav-icon">👂</span><span>Интервалы</span></div>
     <div class="nav-item" onclick="switchTab('chords', this)"><span class="nav-icon">🎹</span><span>Аккорды</span></div>
     <div class="nav-item" onclick="switchTab('sing', this)"><span class="nav-icon">🎤</span><span>Пение</span></div>
@@ -356,22 +364,14 @@
       } catch (e) {}
     }
 
-    // ИНИЦИАЛИЗАЦИЯ WEB AUDIO API С SAFARI/TELEGRAM UNLOCKER
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     const audioCtx = new AudioContextClass();
 
     function unlockAudioContext() {
       if (audioCtx.state === 'suspended' || audioCtx.state === 'interrupted') {
-        audioCtx.resume().then(() => {
-          const buffer = audioCtx.createBuffer(1, 1, 22050);
-          const source = audioCtx.createBufferSource();
-          source.buffer = buffer;
-          source.connect(audioCtx.destination);
-          source.start(0);
-        });
+        audioCtx.resume();
       }
     }
-
     ['touchstart', 'touchend', 'mousedown', 'click', 'keydown'].forEach(evt => {
       document.addEventListener(evt, unlockAudioContext, { once: true });
     });
@@ -410,11 +410,17 @@
     };
 
     function updateScoreDisplays() {
-      document.getElementById('score-rhythm').innerText = scores.rhythm;
       document.getElementById('score-cmp').innerText = scores.cmp;
+      document.getElementById('score-rhythm').innerText = scores.rhythm;
       document.getElementById('score-id').innerText = scores.id;
       document.getElementById('score-chd').innerText = scores.chd;
       document.getElementById('score-sing').innerText = scores.sing;
+
+      document.getElementById('hs-cmp').innerText = highScores.cmp;
+      document.getElementById('hs-rhythm').innerText = highScores.rhythm;
+      document.getElementById('hs-id').innerText = highScores.id;
+      document.getElementById('hs-chd').innerText = highScores.chd;
+      document.getElementById('hs-sing').innerText = highScores.sing;
     }
 
     function addScore(mode, delta) {
@@ -440,14 +446,83 @@
       el.classList.add('active');
     }
 
-    // --- МОДУЛЬ ТЮНЕРА ---
+    // --- ПОЛНЫЙ БАЗОВЫЙ НАБОР ТЕОРИИ (ДО ОКТАВЫ И ВСЕ АККОРДЫ) ---
+    const ALL_INTERVALS = [
+      { name: "Малая секунда", semitones: 1, desc: "1 полутон. Очень резкий диссонанс." },
+      { name: "Большая секунда", semitones: 2, desc: "2 полутона. Мягкий диссонанс." },
+      { name: "Малая терция", semitones: 3, desc: "3 полутона. Грустный минорный характер." },
+      { name: "Большая терция", semitones: 4, desc: "4 полутона. Светлый мажорный характер." },
+      { name: "Чистая кварта", semitones: 5, desc: "5 полутонов. Призывный, гимновый интервал." },
+      { name: "Тритон (ув.4 / ум.5)", semitones: 6, desc: "6 полутонов. Острое напряжение." },
+      { name: "Чистая квинта", semitones: 7, desc: "7 полутонов. Очень устойчивый, 'пустой' звук." },
+      { name: "Малая секста", semitones: 8, desc: "8 полутонов. Печальный романтический интервал." },
+      { name: "Большая секста", semitones: 9, desc: "9 полутонов. Светлый ясный интервал." },
+      { name: "Малая септима", semitones: 10, desc: "10 полутонов. Напряженный джазовый интервал." },
+      { name: "Большая септима", semitones: 11, desc: "11 полутонов. Острый диссонанс." },
+      { name: "Чистая октава", semitones: 12, desc: "12 полутонов. Полное слитие нот." }
+    ];
+
+    const ALL_CHORDS = [
+      { name: "Мажор (Maj)", offsets: [0, 4, 7], desc: "Состав: б.3 + м.3 (4 + 3 полутона)." },
+      { name: "Минор (Min)", offsets: [0, 3, 7], desc: "Состав: м.3 + б.3 (3 + 4 полутона)." },
+      { name: "Уменьшенный (Dim)", offsets: [0, 3, 6], desc: "Состав: м.3 + м.3 (3 + 3 полутона)." },
+      { name: "Увеличенный (Aug)", offsets: [0, 4, 8], desc: "Состав: б.3 + б.3 (4 + 4 полутона)." },
+      { name: "Малый мажорный септаккорд (7)", offsets: [0, 4, 7, 10], desc: "Состав: Мажорное трезвучие + м.3." },
+      { name: "Большой мажорный септаккорд (Maj7)", offsets: [0, 4, 7, 11], desc: "Состав: Мажорное трезвучие + б.3." },
+      { name: "Малый минорный септаккорд (m7)", offsets: [0, 3, 7, 10], desc: "Состав: Минорное трезвучие + м.3." },
+      { name: "Большой минорный септаккорд (mMaj7)", offsets: [0, 3, 7, 11], desc: "Состав: Минорное трезвучие + б.3." }
+    ];
+
+    // --- 1. СРАВНЕНИЕ ИНТЕРВАЛОВ ---
+    let cmpWider = 1, cmpAnswered = false;
+    function nextCompare() {
+      triggerHaptic('light');
+      unlockAudioContext();
+      stopAllActiveAudio();
+      document.getElementById('fb-compare').innerText = '';
+      cmpAnswered = false;
+      document.getElementById('compBtn1').disabled = false;
+      document.getElementById('compBtn2').disabled = false;
+
+      const s1 = Math.floor(Math.random() * 11) + 1;
+      let s2 = Math.floor(Math.random() * 11) + 1;
+      while (s1 === s2) s2 = Math.floor(Math.random() * 11) + 1;
+
+      cmpWider = s1 > s2 ? 1 : 2;
+      const now = audioCtx.currentTime + 0.05;
+      playTone(261.63, now, 0.6);
+      playTone(261.63 * Math.pow(2, s1/12), now + 0.1, 0.6);
+      playTone(261.63, now + 1.1, 0.6);
+      playTone(261.63 * Math.pow(2, s2/12), now + 1.2, 0.6);
+    }
+    function repeatCompare() {
+      unlockAudioContext();
+      stopAllActiveAudio();
+      nextCompare();
+    }
+    function checkCompare(ans) {
+      if (cmpAnswered) return;
+      cmpAnswered = true;
+      document.getElementById('compBtn1').disabled = true;
+      document.getElementById('compBtn2').disabled = true;
+
+      const fb = document.getElementById('fb-compare');
+      if (ans === cmpWider) {
+        fb.innerText = "Правильно! 🎉 +10"; fb.className = "feedback correct";
+        addScore('cmp', 10); triggerHaptic('success');
+      } else {
+        fb.innerText = "Ошибка! ❌ -5"; fb.className = "feedback wrong";
+        addScore('cmp', -5); triggerHaptic('error');
+      }
+    }
+
+    // --- 2. ТЮНЕР ---
     let isTunerActive = false, tunerStream = null, tunerAnalyser = null;
     async function toggleTunerMic() {
       triggerHaptic('medium');
       unlockAudioContext();
-      if (isTunerActive) {
-        stopTunerMic();
-      } else {
+      if (isTunerActive) stopTunerMic();
+      else {
         try {
           tunerStream = await navigator.mediaDevices.getUserMedia({ audio: true });
           const source = audioCtx.createMediaStreamSource(tunerStream);
@@ -455,49 +530,32 @@
           tunerAnalyser.fftSize = 2048;
           source.connect(tunerAnalyser);
           isTunerActive = true;
-          document.getElementById('tunerMicBtn').innerText = "🛑 Остановить Тюнер";
+          document.getElementById('tunerMicBtn').innerText = "🛑 Остановить";
           document.getElementById('tunerMicBtn').style.background = "#ff3b30";
           updateTunerLoop();
-        } catch (e) { alert("Ошибка доступа к микрофону"); }
+        } catch (e) { alert("Микрофон недоступен"); }
       }
     }
-
     function stopTunerMic() {
       if (tunerStream) tunerStream.getTracks().forEach(t => t.stop());
       isTunerActive = false;
       document.getElementById('tunerMicBtn').innerText = "🎙 Включить Тюнер";
       document.getElementById('tunerMicBtn').style.background = "#34c759";
       document.getElementById('tunerStatus').innerText = "Тюнер остановлен";
-      document.getElementById('tunerPointer').style.left = "50%";
     }
-
     function updateTunerLoop() {
       if (!isTunerActive) return;
       const buf = new Float32Array(2048);
       tunerAnalyser.getFloatTimeDomainData(buf);
       const pitch = autoCorrelate(buf, audioCtx.sampleRate);
-
       if (pitch !== -1) {
         document.getElementById('tunerFreq').innerText = pitch.toFixed(1) + " Гц";
         const midi = Math.round(69 + 12 * Math.log2(pitch / 440));
         const noteName = NOTE_NAMES[midi % 12] + Math.floor(midi / 12 - 1);
         const targetFreq = 440 * Math.pow(2, (midi - 69) / 12);
         const cents = 1200 * Math.log2(pitch / targetFreq);
-
         document.getElementById('tunerNote').innerText = noteName;
-        let pos = Math.max(0, Math.min(100, 50 + cents));
-        document.getElementById('tunerPointer').style.left = pos + "%";
-
-        if (Math.abs(cents) < 8) {
-          document.getElementById('tunerStatus').innerText = "СТРУНА НАСТРОЕНА! 🎯";
-          document.getElementById('tunerPointer').style.background = "#4cd964";
-        } else if (cents < 0) {
-          document.getElementById('tunerStatus').innerText = "Перетянута (Ниже) ⬆️";
-          document.getElementById('tunerPointer').style.background = "#ffcc00";
-        } else {
-          document.getElementById('tunerStatus').innerText = "Недотянута (Выше) ⬇️";
-          document.getElementById('tunerPointer').style.background = "#ffcc00";
-        }
+        document.getElementById('tunerPointer').style.left = Math.max(0, Math.min(100, 50 + cents)) + "%";
       }
       requestAnimationFrame(updateTunerLoop);
     }
@@ -518,95 +576,70 @@
       return sampleRate / maxpos;
     }
 
-    // --- TAP TEMPO ---
-    let tapTimes = [];
-    function handleTapTempo() {
-      const now = performance.now();
-      tapTimes.push(now);
-      if (tapTimes.length > 4) tapTimes.shift();
-      if (tapTimes.length > 1) {
-        const diffs = [];
-        for (let i = 1; i < tapTimes.length; i++) diffs.push(tapTimes[i] - tapTimes[i-1]);
-        const avg = diffs.reduce((a,b)=>a+b)/diffs.length;
-        const bpm = Math.round(60000 / avg);
-        if (bpm >= 50 && bpm <= 140) {
-          document.getElementById('bpmSlider').value = bpm;
-          document.getElementById('bpmValDisplay').innerText = bpm;
-        }
-      }
+    // --- 3. РИТМ С ПРЕДОТСЧЕТОМ ---
+    let isRhythmMicActive = false, rhythmTimers = [];
+    function stopRhythmTimers() {
+      rhythmTimers.forEach(t => clearTimeout(t));
+      rhythmTimers = [];
     }
-
-    // --- РИТМ ---
-    function playRhythmSample() {
+    function startRhythmFlow() {
       triggerHaptic('light');
       unlockAudioContext();
       stopAllActiveAudio();
+      stopRhythmTimers();
+
       const bpm = Number(document.getElementById('bpmSlider').value);
       const qTime = 60 / bpm;
+      const fb = document.getElementById('fb-rhythm');
+      fb.innerText = "Слушайте ритм..."; fb.className = "feedback";
+
+      // Звучание ритма
       const now = audioCtx.currentTime + 0.1;
       playTone(800, now, 0.05);
       playTone(800, now + qTime, 0.05);
       playTone(800, now + qTime * 3, 0.05);
+
+      // Предотсчет 1-2-3-4
+      let t1 = setTimeout(() => {
+        fb.innerText = "Отсчет 1-2-3-4...";
+        let step = 1;
+        let metroCircle = document.getElementById('metroCircle');
+        let interval = setInterval(() => {
+          metroCircle.innerText = step;
+          metroCircle.className = "metro-circle active-beat";
+          setTimeout(() => metroCircle.className = "metro-circle", 120);
+          step++;
+          if (step > 4) {
+            clearInterval(interval);
+            fb.innerText = "Хлопайте ритм в микрофон!";
+            fb.className = "feedback correct";
+          }
+        }, qTime * 1000);
+      }, (4 * qTime + 0.2) * 1000);
+      rhythmTimers.push(t1);
     }
     function nextRhythm() {
       document.getElementById('fb-rhythm').innerText = '';
-      playRhythmSample();
+      startRhythmFlow();
     }
 
-    // --- СРАВНЕНИЕ ИНТЕРВАЛОВ ---
-    let cmpWider = 1;
-    function nextCompare() {
-      triggerHaptic('light');
-      unlockAudioContext();
-      stopAllActiveAudio();
-      document.getElementById('fb-compare').innerText = '';
-      const s1 = Math.floor(Math.random() * 8) + 1;
-      const s2 = Math.floor(Math.random() * 8) + 1;
-      cmpWider = s1 > s2 ? 1 : 2;
-      const now = audioCtx.currentTime + 0.1;
-      playTone(261.63, now, 0.6);
-      playTone(261.63 * Math.pow(2, s1/12), now + 0.1, 0.6);
-      playTone(261.63, now + 1.2, 0.6);
-      playTone(261.63 * Math.pow(2, s2/12), now + 1.3, 0.6);
-    }
-    function repeatCompare() { nextCompare(); }
-    function checkCompare(ans) {
-      const fb = document.getElementById('fb-compare');
-      if (ans === cmpWider) {
-        fb.innerText = "Правильно! 🎉 +10"; fb.className = "feedback correct";
-        addScore('cmp', 10); triggerHaptic('success');
-      } else {
-        fb.innerText = "Ошибка! ❌ -5"; fb.className = "feedback wrong";
-        addScore('cmp', -5); triggerHaptic('error');
-      }
-    }
-
-    // --- ИНТЕРВАЛЫ ---
-    const INTERVALS = [
-      { name: "Малая секунда", semitones: 1, desc: "1 полутон. Очень резкий, напряженный диссонанс." },
-      { name: "Большая секунда", semitones: 2, desc: "2 полутона. Светлый диссонанс." },
-      { name: "Малая терция", semitones: 3, desc: "3 полутона. Грустный, минорный окрас." },
-      { name: "Большая терция", semitones: 4, desc: "4 полутона. Радостный, мажорный окрас." },
-      { name: "Чистая кварта", semitones: 5, desc: "5 полутонов. Призывный, устойчивый интервал." },
-      { name: "Тритон", semitones: 6, desc: "6 полутонов. Острый напряженный интервал." },
-      { name: "Чистая квинта", semitones: 7, desc: "7 полутонов. Пустой, очень устойчивый звук." }
-    ];
-    let currentInterval = null, currentBaseMidi = 60;
-
+    // --- 4. ИНТЕРВАЛЫ С БЛОКИРОВКОЙ ПОСЛЕ ОТВЕТА ---
+    let currentInterval = null, currentBaseMidi = 60, idAnswered = false;
     function nextIdentify() {
       triggerHaptic('light');
       unlockAudioContext();
       stopAllActiveAudio();
       clearPianoHighlights();
+      idAnswered = false;
       document.getElementById('fb-identify').innerText = '';
-      currentInterval = INTERVALS[Math.floor(Math.random() * INTERVALS.length)];
-      currentBaseMidi = Math.floor(Math.random() * 6) + 60; // Случайная тоника
+      currentInterval = ALL_INTERVALS[Math.floor(Math.random() * ALL_INTERVALS.length)];
+      currentBaseMidi = Math.floor(Math.random() * 6) + 60;
 
       const optsContainer = document.getElementById('identify-options');
       optsContainer.innerHTML = '';
       let options = [currentInterval];
       while (options.length < 3) {
-        let rand = INTERVALS[Math.floor(Math.random() * INTERVALS.length)];
+        let rand = ALL_INTERVALS[Math.floor(Math.random() * ALL_INTERVALS.length)];
         if (!options.includes(rand)) options.push(rand);
       }
       options.sort(() => Math.random() - 0.5);
@@ -616,7 +649,11 @@
         btn.className = 'opt-btn';
         btn.innerText = opt.name;
         btn.onclick = () => {
+          if (idAnswered) return;
+          idAnswered = true;
+          disableOptionButtons('identify-options');
           showIntervalPianoHint();
+
           const fb = document.getElementById('fb-identify');
           if (opt.semitones === currentInterval.semitones) {
             fb.innerText = "Верно! 👏 +10"; fb.className = "feedback correct";
@@ -642,14 +679,11 @@
       const now = audioCtx.currentTime + 0.05;
 
       if (dir === 'up') {
-        playTone(baseFreq, now, 0.7);
-        playTone(targetFreq, now + 0.3, 0.7);
+        playTone(baseFreq, now, 0.7); playTone(targetFreq, now + 0.3, 0.7);
       } else if (dir === 'down') {
-        playTone(targetFreq, now, 0.7);
-        playTone(baseFreq, now + 0.3, 0.7);
+        playTone(targetFreq, now, 0.7); playTone(baseFreq, now + 0.3, 0.7);
       } else {
-        playTone(baseFreq, now, 1.0);
-        playTone(targetFreq, now, 1.0);
+        playTone(baseFreq, now, 1.0); playTone(targetFreq, now, 1.0);
       }
     }
 
@@ -658,32 +692,37 @@
       highlightPianoKey(currentBaseMidi + currentInterval.semitones, 'pianoKeyboard-id');
     }
 
-    // --- АККОРДЫ ---
-    const CHORDS = [
-      { name: "Мажор (Maj)", offsets: [0, 4, 7], desc: "Мажорное трезвучие. Состав: б.3 + м.3." },
-      { name: "Минор (Min)", offsets: [0, 3, 7], desc: "Минорное трезвучие. Состав: м.3 + б.3." },
-      { name: "Уменьшенный (Dim)", offsets: [0, 3, 6], desc: "Уменьшенное трезвучие. Состав: м.3 + м.3." },
-      { name: "Доминантсептаккорд (7)", offsets: [0, 4, 7, 10], desc: "Малый мажорный септаккорд." }
-    ];
-    let currentChord = null, currentChordBaseMidi = 60;
-
+    // --- 5. АККОРДЫ С БЛОКИРОВКОЙ ПОСЛЕ ОТВЕТА ---
+    let currentChord = null, currentChordBaseMidi = 60, chordAnswered = false;
     function nextChord() {
       triggerHaptic('light');
       unlockAudioContext();
       stopAllActiveAudio();
       clearPianoHighlights();
+      chordAnswered = false;
       document.getElementById('fb-chord').innerText = '';
-      currentChord = CHORDS[Math.floor(Math.random() * CHORDS.length)];
+      currentChord = ALL_CHORDS[Math.floor(Math.random() * ALL_CHORDS.length)];
       currentChordBaseMidi = Math.floor(Math.random() * 5) + 60;
 
       const optsContainer = document.getElementById('chord-options');
       optsContainer.innerHTML = '';
-      CHORDS.forEach(opt => {
+      let options = [currentChord];
+      while (options.length < 4) {
+        let rand = ALL_CHORDS[Math.floor(Math.random() * ALL_CHORDS.length)];
+        if (!options.includes(rand)) options.push(rand);
+      }
+      options.sort(() => Math.random() - 0.5);
+
+      options.forEach(opt => {
         const btn = document.createElement('button');
         btn.className = 'opt-btn';
         btn.innerText = opt.name;
         btn.onclick = () => {
+          if (chordAnswered) return;
+          chordAnswered = true;
+          disableOptionButtons('chord-options');
           showChordPianoHint();
+
           const fb = document.getElementById('fb-chord');
           if (opt.name === currentChord.name) {
             fb.innerText = "Правильно! 🎹 +10"; fb.className = "feedback correct";
@@ -716,15 +755,16 @@
       });
     }
 
-    // --- ПЕНИЕМ ---
-    let isMicActive = false, micStream = null, pitchAnalyser = null, targetFreq = 261.63;
-    let holdDurationMs = 0, lastPitchTime = performance.now();
+    function disableOptionButtons(containerId) {
+      document.querySelectorAll(`#${containerId} .opt-btn`).forEach(btn => btn.disabled = true);
+    }
 
+    // --- 6. ПЕНИЕ ---
+    let isMicActive = false, micStream = null, pitchAnalyser = null, targetFreq = 261.63;
     function generateTargetNote() {
       triggerHaptic('light');
       unlockAudioContext();
       stopAllActiveAudio();
-      holdDurationMs = 0;
       const range = document.getElementById('singOctaveRange').value;
       const startMidi = range === 'male' ? 48 : 60;
       const midi = Math.floor(Math.random() * 12) + startMidi;
@@ -732,7 +772,6 @@
       document.getElementById('targetNoteDisplay').innerText = NOTE_NAMES[midi % 12] + Math.floor(midi / 12 - 1);
       playTone(targetFreq, audioCtx.currentTime + 0.05, 1.2);
     }
-
     function repeatTargetNote() {
       unlockAudioContext();
       stopAllActiveAudio();
@@ -742,9 +781,8 @@
     async function toggleMic() {
       triggerHaptic('medium');
       unlockAudioContext();
-      if (isMicActive) {
-        stopMic();
-      } else {
+      if (isMicActive) stopMic();
+      else {
         try {
           micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
           const source = audioCtx.createMediaStreamSource(micStream);
@@ -754,117 +792,69 @@
           isMicActive = true;
           document.getElementById('micBtn').innerText = "🛑 Остановить";
           document.getElementById('micBtn').style.background = "#ff3b30";
-          lastPitchTime = performance.now();
-          updatePitchLoop();
         } catch (e) { alert("Микрофон недоступен"); }
       }
     }
-
     function stopMic() {
       if (micStream) micStream.getTracks().forEach(t => t.stop());
       isMicActive = false;
       document.getElementById('micBtn').innerText = "🎤 Включить микрофон";
       document.getElementById('micBtn').style.background = "#34c759";
-      document.getElementById('singStatus').innerText = "Микрофон выключен";
-      document.getElementById('meterPointer').style.left = "50%";
     }
 
-    function updatePitchLoop() {
-      if (!isMicActive) return;
-      const dt = performance.now() - lastPitchTime;
-      lastPitchTime = performance.now();
-      const buf = new Float32Array(2048);
-      pitchAnalyser.getFloatTimeDomainData(buf);
-      const pitch = autoCorrelate(buf, audioCtx.sampleRate);
-
-      if (pitch !== -1) {
-        const cents = 1200 * Math.log2(pitch / targetFreq);
-        let pos = Math.max(0, Math.min(100, 50 + cents / 2));
-        document.getElementById('meterPointer').style.left = pos + "%";
-        if (Math.abs(cents) < 20) {
-          holdDurationMs += dt;
-          if (holdDurationMs >= 1000) document.getElementById('hc1').className = 'hold-circle step-1';
-          if (holdDurationMs >= 2000) document.getElementById('hc2').className = 'hold-circle step-2';
-          if (holdDurationMs >= 3000) {
-            document.getElementById('hc3').className = 'hold-circle step-3';
-            document.getElementById('singStatus').innerText = "ОТЛИЧНО! 🎉 +15";
-            addScore('sing', 15); triggerHaptic('success');
-            setTimeout(generateTargetNote, 1200);
-          }
-        }
-      }
-      requestAnimationFrame(updatePitchLoop);
-    }
-
-    // --- ТЕОРИЯ И ВЫПЛЫВАЮЩИЙ СПИСОК (АККОРДЕОН) ---
-    const FLASHCARDS = [
-      { title: "Что такое Малая Терция?", desc: "Малая терция состоит из 3 полутонов (1.5 тона). Имеет грустную минорную окраску." },
-      { title: "Состав Мажорного Трезвучия", desc: "Большая терция (б.3) + Малая терция (м.3). Например: C - E - G." },
-      { title: "Что такое Тритон?", desc: "Интервал объемом в 6 полутонов (3 тона). Очень напряженное диссонирующее звучание." }
-    ];
-    let currentFcIdx = 0;
-    function flipFlashcard() {
-      const desc = document.getElementById('fc-desc');
-      desc.style.display = desc.style.display === 'none' ? 'block' : 'none';
-    }
-    function nextFlashcard() {
-      currentFcIdx = (currentFcIdx + 1) % FLASHCARDS.length;
-      document.getElementById('fc-title').innerText = FLASHCARDS[currentFcIdx].title;
-      document.getElementById('fc-desc').innerText = FLASHCARDS[currentFcIdx].desc;
-      document.getElementById('fc-desc').style.display = 'none';
-    }
-
-    function buildWikiAccordions() {
-      const intContainer = document.getElementById('wiki-intervals-list');
-      intContainer.innerHTML = '';
-      INTERVALS.forEach(i => {
-        const item = document.createElement('div');
-        item.className = 'accordion-item';
-        item.innerHTML = `
-          <div class="accordion-header" onclick="toggleAccordion(this)">
-            <span>${i.name} (${i.semitones} полут.)</span>
-            <button class="btn btn-secondary" style="width:auto; padding:4px 8px; margin:0;" onclick="event.stopPropagation(); playTheoryInterval(${i.semitones});">🔊 Играть</button>
-          </div>
-          <div class="accordion-body">${i.desc}</div>`;
-        intContainer.appendChild(item);
+    // --- 7. ТЕОРИЯ (ВЫПЛЫВАЮЩИЕ СПИСКИ) ---
+    function initTheorySelects() {
+      const intSel = document.getElementById('theoryIntervalSelect');
+      intSel.innerHTML = '';
+      ALL_INTERVALS.forEach((item, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.innerText = item.name;
+        intSel.appendChild(opt);
       });
 
-      const chordContainer = document.getElementById('wiki-chords-list');
-      chordContainer.innerHTML = '';
-      CHORDS.forEach(c => {
-        const item = document.createElement('div');
-        item.className = 'accordion-item';
-        item.innerHTML = `
-          <div class="accordion-header" onclick="toggleAccordion(this)">
-            <span>${c.name}</span>
-            <button class="btn btn-secondary" style="width:auto; padding:4px 8px; margin:0;" onclick="event.stopPropagation(); playTheoryChord([${c.offsets.join(',')}]);">🔊 Играть</button>
-          </div>
-          <div class="accordion-body">${c.desc}</div>`;
-        chordContainer.appendChild(item);
+      const chordSel = document.getElementById('theoryChordSelect');
+      chordSel.innerHTML = '';
+      ALL_CHORDS.forEach((item, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.innerText = item.name;
+        chordSel.appendChild(opt);
       });
+
+      updateTheoryIntervalInfo();
+      updateTheoryChordInfo();
     }
 
-    function toggleAccordion(headerEl) {
-      triggerHaptic('light');
-      const body = headerEl.nextElementSibling;
-      const isVisible = body.style.display === 'block';
-      document.querySelectorAll('.accordion-body').forEach(b => b.style.display = 'none');
-      body.style.display = isVisible ? 'none' : 'block';
+    function updateTheoryIntervalInfo() {
+      const idx = document.getElementById('theoryIntervalSelect').value;
+      const item = ALL_INTERVALS[idx];
+      document.getElementById('theoryIntervalDesc').innerHTML = `<b>${item.name}</b>: ${item.semitones} полутон(ов).<br>${item.desc}`;
     }
 
-    function playTheoryInterval(semitones) {
+    function updateTheoryChordInfo() {
+      const idx = document.getElementById('theoryChordSelect').value;
+      const item = ALL_CHORDS[idx];
+      document.getElementById('theoryChordDesc').innerHTML = `<b>${item.name}</b><br>${item.desc}`;
+    }
+
+    function playTheoryInterval() {
       unlockAudioContext();
       stopAllActiveAudio();
+      const idx = document.getElementById('theoryIntervalSelect').value;
+      const item = ALL_INTERVALS[idx];
       const now = audioCtx.currentTime + 0.05;
       playTone(261.63, now, 0.8);
-      playTone(261.63 * Math.pow(2, semitones/12), now + 0.1, 0.8);
+      playTone(261.63 * Math.pow(2, item.semitones/12), now + 0.1, 0.8);
     }
 
-    function playTheoryChord(offsets) {
+    function playTheoryChord() {
       unlockAudioContext();
       stopAllActiveAudio();
+      const idx = document.getElementById('theoryChordSelect').value;
+      const item = ALL_CHORDS[idx];
       const now = audioCtx.currentTime + 0.05;
-      offsets.forEach(off => {
+      item.offsets.forEach(off => {
         playTone(261.63 * Math.pow(2, off/12), now, 1.2);
       });
     }
@@ -903,7 +893,7 @@
     // Инициализация
     buildPianoKeyboard('pianoKeyboard-id');
     buildPianoKeyboard('pianoKeyboard-chd');
-    buildWikiAccordions();
+    initTheorySelects();
     updateScoreDisplays();
   </script>
 </body>
