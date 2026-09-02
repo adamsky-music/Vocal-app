@@ -104,6 +104,24 @@
       outline: none;
     }
 
+    /* Слайдер темпа BPM */
+    .tempo-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255,255,255,0.04);
+      padding: 8px 12px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .tempo-control input[type="range"] {
+      flex: 1;
+      accent-color: var(--btn-color);
+    }
+
     h2 { margin-top: 0; font-size: 19px; }
     p { font-size: 13px; opacity: 0.8; line-height: 1.4; }
 
@@ -147,6 +165,29 @@
     .meter-container { width: 100%; height: 10px; background: rgba(255,255,255,0.1); border-radius: 5px; position: relative; overflow: hidden; margin: 10px 0; }
     .meter-pointer { width: 6px; height: 100%; background: var(--btn-color); position: absolute; left: 50%; transform: translateX(-50%); transition: left 0.1s ease-out, background 0.2s; }
 
+    /* Индикатор удержания ноты (3 секунды) */
+    .hold-timer-box {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      margin: 10px 0 6px 0;
+      min-height: 32px;
+    }
+
+    .hold-circle {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      transition: all 0.2s ease;
+    }
+
+    .hold-circle.step-1 { background: #ff3b30; border-color: #ff3b30; box-shadow: 0 0 10px rgba(255, 59, 48, 0.6); }
+    .hold-circle.step-2 { background: #ffcc00; border-color: #ffcc00; box-shadow: 0 0 10px rgba(255, 204, 0, 0.6); }
+    .hold-circle.step-3 { background: #4cd964; border-color: #4cd964; box-shadow: 0 0 12px rgba(76, 217, 100, 0.8); }
+
     .rhythm-display {
       font-size: 26px;
       letter-spacing: 4px;
@@ -162,7 +203,53 @@
       border: 1px solid rgba(255,255,255,0.1);
     }
 
-    /* МЕТРОНОМ И ВИЗУАЛИЗАЦИЯ МИКРОФОНА */
+    /* ИНТЕРАКТИВНОЕ ПИАНИНО */
+    .piano-wrapper {
+      margin: 14px 0 6px 0;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .piano-keyboard {
+      display: inline-flex;
+      position: relative;
+      background: #111;
+      padding: 8px 10px 10px 10px;
+      border-radius: 12px;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+    }
+    .piano-key {
+      position: relative;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.1s ease;
+    }
+    .piano-key.white {
+      width: 28px;
+      height: 100px;
+      background: #f0f0f0;
+      border: 1px solid #ccc;
+      border-bottom-left-radius: 5px;
+      border-bottom-right-radius: 5px;
+      z-index: 1;
+    }
+    .piano-key.white:active, .piano-key.white.active {
+      background: #3390ec !important;
+    }
+    .piano-key.black {
+      width: 18px;
+      height: 62px;
+      background: #222;
+      border: 1px solid #000;
+      border-bottom-left-radius: 3px;
+      border-bottom-right-radius: 3px;
+      margin-left: -9px;
+      margin-right: -9px;
+      z-index: 2;
+    }
+    .piano-key.black:active, .piano-key.black.active {
+      background: #3390ec !important;
+    }
+
     .metronome-box {
       display: flex;
       flex-direction: column;
@@ -281,7 +368,7 @@
 <body>
 
   <!-- ВКЛАДКА 1: Ритм -->
-  <div id="tab-rhythm" class="tab-content active">
+  <div id="tab-rhythm" class="tab-content">
     <div class="card">
       <div class="score-banner">
         <span>Счет: <b id="score-rhythm">0</b></span>
@@ -297,6 +384,12 @@
           <option value="rimshot">Римшот (Rimshot)</option>
         </select>
       </div>
+
+      <div class="tempo-control">
+        <span>⏱ Темп: <b id="bpmValDisplay">80</b> BPM</span>
+        <input type="range" id="bpmSlider" min="50" max="140" value="80" oninput="updateBpmValue(this.value)">
+      </div>
+
       <h2>🥁 Ритмический тренажер</h2>
       <div id="rhythm-level-badge" class="level-badge">Уровень 1: Четверти и паузы</div>
       <p>Прослушайте ритм, затем прохлопайте его в микрофон под визуальный метроном.</p>
@@ -324,8 +417,8 @@
     </div>
   </div>
 
-  <!-- ВКЛАДКА 2: Сравнение -->
-  <div id="tab-compare" class="tab-content">
+  <!-- ВКЛАДКА 2: Сравнение (ПО УМОЛЧАНИЮ АКТИВНА) -->
+  <div id="tab-compare" class="tab-content active">
     <div class="card">
       <div class="score-banner">
         <span>Счет: <b id="score-cmp">0</b></span>
@@ -382,6 +475,11 @@
       <h2>👂 Слух: Интервалы</h2>
       <div id="interval-level-badge" class="level-badge">Уровень 1: Секунды и Терции</div>
       <p>Прослушайте интервал и угадайте его название.</p>
+
+      <!-- Интерактивная клавиатура пианино -->
+      <div class="piano-wrapper">
+        <div class="piano-keyboard" id="pianoKeyboard"></div>
+      </div>
       
       <div class="grid-2">
         <button class="btn btn-secondary" id="repeatIdentifyBtn" onclick="repeatIdentify()" disabled>🔁 Повторить</button>
@@ -436,14 +534,37 @@
   <!-- ВКЛАДКА 5: Пение -->
   <div id="tab-sing" class="tab-content">
     <div class="card">
+      <div class="score-banner">
+        <span>Счет: <b id="score-sing">0</b></span>
+        <span>Рекорд: <b id="hs-sing">0</b></span>
+      </div>
+
       <h2>🎤 Пропевание ноты</h2>
-      <p>Задайте ноту, прослушайте эталон и спойте его в микрофон.</p>
-      <button class="btn" onclick="generateTargetNote()">🎵 Задать новую ноту</button>
-      
+      <p>Прослушайте эталон, включите микрофон и удерживайте ноту 3 секунды.</p>
+
       <div class="pitch-indicator" id="targetNoteDisplay">--</div>
+
+      <!-- Индикатор фиксации 3 секунд -->
+      <div class="hold-timer-box">
+        <div class="hold-circle" id="hc1"></div>
+        <div class="hold-circle" id="hc2"></div>
+        <div class="hold-circle" id="hc3"></div>
+      </div>
+
       <div class="meter-container"><div class="meter-pointer" id="meterPointer"></div></div>
       <p id="singStatus">Микрофон выключен</p>
-      <button class="btn" id="micBtn" onclick="toggleMic()" style="background:#34c759;">🎤 Включить микрофон</button>
+
+      <div class="grid-2">
+        <button class="btn btn-secondary" id="repeatNoteBtn" onclick="repeatTargetNote()" disabled>🔁 Повторить тон</button>
+        <button class="btn" onclick="generateTargetNote()">🎵 Новая нота</button>
+      </div>
+
+      <button class="btn" id="micBtn" onclick="toggleMic()" style="background:#34c759; margin-top:8px;">🎤 Включить микрофон</button>
+
+      <div class="leader-box">
+        <div class="leader-box-title">🏆 Топ игроков (Пение)</div>
+        <div id="lb-sing">Загрузка топа...</div>
+      </div>
     </div>
   </div>
 
@@ -456,20 +577,31 @@
     </div>
   </div>
 
-  <!-- Навигация -->
+  <!-- Навигация (Сравнение активно по умолчанию) -->
   <div class="nav-bar">
-    <div class="nav-item active" onclick="switchTab('rhythm', this)"><span class="nav-icon">🥁</span><span>Ритм</span></div>
-    <div class="nav-item" onclick="switchTab('compare', this)"><span class="nav-icon">⚖️</span><span>Сравнение</span></div>
-    <div class="nav-item" onclick="switchTab('identify', this)"><span class="nav-icon">👂</span><span>Интервалы</span></div>
-    <div class="nav-item" onclick="switchTab('chords', this)"><span class="nav-icon">🎹</span><span>Аккорды</span></div>
-    <div class="nav-item" onclick="switchTab('sing', this)"><span class="nav-icon">🎤</span><span>Пение</span></div>
-    <div class="nav-item" onclick="switchTab('wiki', this)"><span class="nav-icon">📚</span><span>Теория</span></div>
+    <div class="nav-item" id="nav-rhythm" onclick="switchTab('rhythm', this)"><span class="nav-icon">🥁</span><span>Ритм</span></div>
+    <div class="nav-item active" id="nav-compare" onclick="switchTab('compare', this)"><span class="nav-icon">⚖️</span><span>Сравнение</span></div>
+    <div class="nav-item" id="nav-identify" onclick="switchTab('identify', this)"><span class="nav-icon">👂</span><span>Интервалы</span></div>
+    <div class="nav-item" id="nav-chords" onclick="switchTab('chords', this)"><span class="nav-icon">🎹</span><span>Аккорды</span></div>
+    <div class="nav-item" id="nav-sing" onclick="switchTab('sing', this)"><span class="nav-icon">🎤</span><span>Пение</span></div>
+    <div class="nav-item" id="nav-wiki" onclick="switchTab('wiki', this)"><span class="nav-icon">📚</span><span>Теория</span></div>
   </div>
 
   <script>
     const tg = window.Telegram.WebApp;
     tg.ready();
     tg.expand();
+
+    // Haptic Feedback helper
+    function triggerHaptic(type = 'light') {
+      try {
+        if (tg.HapticFeedback) {
+          if (type === 'success') tg.HapticFeedback.notificationOccurred('success');
+          else if (type === 'error') tg.HapticFeedback.notificationOccurred('error');
+          else tg.HapticFeedback.impactOccurred(type);
+        }
+      } catch (e) {}
+    }
 
     // ---------------- FIREBASE CONFIG ----------------
     const FIREBASE_DB_URL = "https://vocalapp-1174c-default-rtdb.firebaseio.com/";
@@ -481,12 +613,13 @@
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
     // Раздельный счет
-    let scores = { rhythm: 0, cmp: 0, id: 0, chd: 0 };
+    let scores = { rhythm: 0, cmp: 0, id: 0, chd: 0, sing: 0 };
     let highScores = {
       rhythm: Number(localStorage.getItem('vocal_app_hs_rhythm')) || 0,
       cmp: Number(localStorage.getItem('vocal_app_hs_cmp')) || 0,
       id: Number(localStorage.getItem('vocal_app_hs_id')) || 0,
-      chd: Number(localStorage.getItem('vocal_app_hs_chd')) || 0
+      chd: Number(localStorage.getItem('vocal_app_hs_chd')) || 0,
+      sing: Number(localStorage.getItem('vocal_app_hs_sing')) || 0
     };
 
     function updateScoreDisplays() {
@@ -494,11 +627,13 @@
       document.getElementById('score-cmp').innerText = scores.cmp;
       document.getElementById('score-id').innerText = scores.id;
       document.getElementById('score-chd').innerText = scores.chd;
+      document.getElementById('score-sing').innerText = scores.sing;
 
       document.getElementById('hs-rhythm').innerText = highScores.rhythm;
       document.getElementById('hs-cmp').innerText = highScores.cmp;
       document.getElementById('hs-id').innerText = highScores.id;
       document.getElementById('hs-chd').innerText = highScores.chd;
+      document.getElementById('hs-sing').innerText = highScores.sing;
     }
 
     function addScore(mode, delta) {
@@ -524,7 +659,7 @@
     }
 
     async function fetchLeaderboard(mode) {
-      const containerMap = { rhythm: 'lb-rhythm', cmp: 'lb-compare', id: 'lb-identify', chd: 'lb-chords' };
+      const containerMap = { rhythm: 'lb-rhythm', cmp: 'lb-compare', id: 'lb-identify', chd: 'lb-chords', sing: 'lb-sing' };
       const container = document.getElementById(containerMap[mode]);
       if (!container) return;
 
@@ -561,6 +696,7 @@
       fetchLeaderboard('cmp');
       fetchLeaderboard('id');
       fetchLeaderboard('chd');
+      fetchLeaderboard('sing');
     }
 
     // ---------------- СИНТЕЗ ЗВУКА С ВЫБОРОМ ТЕМБРА ----------------
@@ -727,6 +863,10 @@
 
     function playInterval(baseFreq, semitones, start, soundType = 'triangle', harmonic = false) {
       const freq2 = baseFreq * Math.pow(2, semitones / 12);
+      
+      highlightPianoKeyByFreq(baseFreq, start, harmonic ? 1.0 : 0.8);
+      highlightPianoKeyByFreq(freq2, harmonic ? start : start + 0.1, 0.8);
+
       if (harmonic) {
         playTone(baseFreq, start, 1.0, soundType);
         playTone(freq2, start, 1.0, soundType);
@@ -741,6 +881,7 @@
       const now = audioCtx.currentTime;
       offsets.forEach(offset => {
         const freq = baseFreq * Math.pow(2, offset / 12);
+        highlightPianoKeyByFreq(freq, now, 1.2);
         playTone(freq, now, 1.2, soundType);
       });
     }
@@ -774,13 +915,57 @@
     const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
     function switchTab(tabId, el) {
+      triggerHaptic('light');
       document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
       document.getElementById('tab-' + tabId).classList.add('active');
       el.classList.add('active');
     }
 
-    // ---------------- 1. РИТМИЧЕСКИЙ ТРЕНАЖЕР (С МИКРОФОНОМ И ВИЗУАЛЬНЫМ МЕТРОНОМОМ) ----------------
+    // ---------------- РЕНДЕР И ИНТЕРАКТИВ ПИАНИНО ----------------
+    function buildPianoKeyboard() {
+      const container = document.getElementById('pianoKeyboard');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const startMidi = 60; // C4
+      const keyCount = 20;
+
+      for (let i = 0; i < keyCount; i++) {
+        const midi = startMidi + i;
+        const noteIdx = midi % 12;
+        const isBlack = [1, 3, 6, 8, 10].includes(noteIdx);
+        
+        const keyEl = document.createElement('div');
+        keyEl.className = `piano-key ${isBlack ? 'black' : 'white'}`;
+        keyEl.dataset.midi = midi;
+
+        keyEl.onclick = () => {
+          triggerHaptic('light');
+          if (audioCtx.state === 'suspended') audioCtx.resume();
+          const freq = 440 * Math.pow(2, (midi - 69) / 12);
+          playTone(freq, audioCtx.currentTime, 0.6, 'triangle');
+          keyEl.classList.add('active');
+          setTimeout(() => keyEl.classList.remove('active'), 250);
+        };
+
+        container.appendChild(keyEl);
+      }
+    }
+
+    function highlightPianoKeyByFreq(freq, startTime, duration = 0.8) {
+      const midi = Math.round(69 + 12 * Math.log2(freq / 440));
+      const keyEl = document.querySelector(`.piano-key[data-midi="${midi}"]`);
+      if (!keyEl) return;
+
+      const delayMs = Math.max(0, (startTime - audioCtx.currentTime) * 1000);
+      setTimeout(() => {
+        keyEl.classList.add('active');
+        setTimeout(() => keyEl.classList.remove('active'), duration * 1000);
+      }, delayMs);
+    }
+
+    // ---------------- 1. РИТМИЧЕСКИЙ ТРЕНАЖЕР С УЛУЧШЕННЫМ ДЕТЕКТОРОМ ХЛОПКОВ ----------------
     let currentRhythmPattern = [];
     let userDetectedClaps = [];
     let rhythmRecordStartTime = 0;
@@ -791,7 +976,14 @@
     let rhythmAnimFrame = null;
     let lastClapTime = 0;
 
-    const Q_TIME = 0.75; // BPM 80 (750 мс на четверть)
+    let currentBPM = 80;
+    let Q_TIME = 60 / currentBPM;
+
+    function updateBpmValue(val) {
+      currentBPM = Number(val);
+      Q_TIME = 60 / currentBPM;
+      document.getElementById('bpmValDisplay').innerText = currentBPM;
+    }
 
     function generateRhythmPattern() {
       const s = scores.rhythm;
@@ -884,7 +1076,6 @@
       return { timings, totalDuration: 4 * Q_TIME };
     }
 
-    // Подсветка визуального метронома
     function flashMetroCircle(text, isAccent = false) {
       const circle = document.getElementById('metroCircle');
       circle.innerText = text;
@@ -894,14 +1085,13 @@
       }, 140);
     }
 
-    // Запуск микрофона для съема хлопок
     async function initRhythmMicrophone() {
       if (rhythmMicStream) return true;
       try {
         rhythmMicStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
         const source = audioCtx.createMediaStreamSource(rhythmMicStream);
         rhythmAnalyser = audioCtx.createAnalyser();
-        rhythmAnalyser.fftSize = 512;
+        rhythmAnalyser.fftSize = 256;
         source.connect(rhythmAnalyser);
         return true;
       } catch (err) {
@@ -912,32 +1102,38 @@
       }
     }
 
+    // Алгоритм поиска ПИКА громкости для хлопков
     function processMicClaps() {
       if (!isRhythmMicActive || !rhythmAnalyser) return;
 
       const dataArray = new Uint8Array(rhythmAnalyser.frequencyBinCount);
       rhythmAnalyser.getByteFrequencyData(dataArray);
 
+      let maxVal = 0;
       let sum = 0;
-      for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-      let avg = sum / dataArray.length;
+      for (let i = 0; i < dataArray.length; i++) {
+        if (dataArray[i] > maxVal) maxVal = dataArray[i];
+        sum += dataArray[i];
+      }
 
-      const fillPercent = Math.min(100, (avg / 120) * 100);
+      const fillPercent = Math.min(100, (maxVal / 255) * 100);
       document.getElementById('micLevelFill').style.width = fillPercent + "%";
 
       const nowMs = performance.now();
-      if (avg > 70 && (nowMs - lastClapTime) > 130) {
+      // Порог детекции хлопка по ПИКУ maxVal > 110
+      if (maxVal > 110 && (nowMs - lastClapTime) > 120) {
         lastClapTime = nowMs;
         const clapRelTime = (nowMs - rhythmRecordStartTime) / 1000;
         userDetectedClaps.push(clapRelTime);
         flashMetroCircle("👏", true);
+        triggerHaptic('medium');
       }
 
       rhythmAnimFrame = requestAnimationFrame(processMicClaps);
     }
 
-    // Полный цикл: Demonstration -> Precount -> Record with Visual Metronome
     async function startRhythmFlow() {
+      triggerHaptic('light');
       if (audioCtx.state === 'suspended') audioCtx.resume();
       document.getElementById('repeatRhythmBtn').disabled = true;
       document.getElementById('fb-rhythm').innerText = "Слушайте образец...";
@@ -945,7 +1141,6 @@
 
       const micOk = await initRhythmMicrophone();
 
-      // 1. Проигрывание эталона
       const drumType = document.getElementById('soundType-rhythm').value;
       const { timings } = getPatternTimings(currentRhythmPattern);
       const audioStartTime = audioCtx.currentTime + 0.1;
@@ -954,14 +1149,13 @@
         playDrumHit(audioStartTime + t, drumType);
       });
 
-      // Ждем завершения эталона
       setTimeout(() => {
         document.getElementById('fb-rhythm').innerText = "Приготовьтесь! Отсчет 1-2-3-4...";
         
-        // 2. Precount (4 визуальные вспышки)
         let preCountStep = 1;
         const precountInterval = setInterval(() => {
           flashMetroCircle(preCountStep, preCountStep === 1);
+          triggerHaptic('light');
           preCountStep++;
           if (preCountStep > 4) {
             clearInterval(precountInterval);
@@ -969,10 +1163,9 @@
           }
         }, Q_TIME * 1000);
 
-      }, 3200);
+      }, (4 * Q_TIME + 0.2) * 1000);
     }
 
-    // 3. Запись хлопок пользователя под визуальный метроном
     function runRhythmRecordingSection() {
       document.getElementById('fb-rhythm').innerText = "Хлопайте ритм!";
       document.getElementById('fb-rhythm').className = "feedback correct";
@@ -1007,6 +1200,7 @@
       if (userDetectedClaps.length === 0) {
         fb.innerText = "Удары не обнаружены. Попробуйте хлопнуть громче ❌";
         fb.className = "feedback wrong";
+        triggerHaptic('error');
         addScore('rhythm', -5);
         return;
       }
@@ -1020,20 +1214,22 @@
           if (diff < minDiff) minDiff = diff;
         });
 
-        if (minDiff < 0.22) {
+        if (minDiff < 0.24) {
           matchedCount++;
         }
       });
 
       const accuracy = matchedCount / timings.length;
 
-      if (accuracy >= 0.75) {
+      if (accuracy >= 0.70) {
         fb.innerText = `Отлично прохлопали! 🎉 (${matchedCount}/${timings.length} попаданий) +10 очков`;
         fb.className = "feedback correct";
+        triggerHaptic('success');
         addScore('rhythm', 10);
       } else {
         fb.innerText = `Мимо ритма ❌ Попали ${matchedCount} из ${timings.length} нот (-5 очков)`;
         fb.className = "feedback wrong";
+        triggerHaptic('error');
         addScore('rhythm', -5);
       }
     }
@@ -1042,6 +1238,7 @@
       if (e) e.preventDefault();
       if (!isRhythmMicActive) return;
 
+      triggerHaptic('medium');
       const drumType = document.getElementById('soundType-rhythm').value;
       playDrumHit(audioCtx.currentTime, drumType);
       const tapRelTime = (performance.now() - rhythmRecordStartTime) / 1000;
@@ -1050,6 +1247,7 @@
     }
 
     function nextRhythm() {
+      triggerHaptic('light');
       document.getElementById('fb-rhythm').innerText = '';
       currentRhythmPattern = generateRhythmPattern();
       const notStr = currentRhythmPattern.map(p => p.notation).join(' ');
@@ -1073,6 +1271,7 @@
     }
 
     function nextCompare() {
+      triggerHaptic('light');
       document.getElementById('fb-compare').innerText = '';
       document.getElementById('comp1').disabled = true;
       document.getElementById('comp2').disabled = true;
@@ -1083,17 +1282,19 @@
       playCompareAudio();
     }
 
-    function repeatCompare() { if (currentS1 && currentS2) playCompareAudio(); }
+    function repeatCompare() { triggerHaptic('light'); if (currentS1 && currentS2) playCompareAudio(); }
 
     function checkCompare(ans) {
       const fb = document.getElementById('fb-compare');
       if (ans === widerIdx) {
         fb.innerText = "Правильно! +10 очков 🎉";
         fb.className = "feedback correct";
+        triggerHaptic('success');
         addScore('cmp', 10);
       } else {
         fb.innerText = "Неверно! -5 очков ❌";
         fb.className = "feedback wrong";
+        triggerHaptic('error');
         addScore('cmp', -5);
       }
       document.getElementById('comp1').disabled = true;
@@ -1141,6 +1342,7 @@
     }
 
     function nextIdentify() {
+      triggerHaptic('light');
       document.getElementById('fb-identify').innerText = '';
       const { available, isHarmonic } = getAvailableIntervals();
       isHarmonicInterval = isHarmonic;
@@ -1164,10 +1366,12 @@
           if (opt.semitones === currentTargetInterval.semitones) {
             fb.innerText = "Верно! +10 очков 👏";
             fb.className = "feedback correct";
+            triggerHaptic('success');
             addScore('id', 10);
           } else {
             fb.innerText = `Ошибка! Это ${currentTargetInterval.name} (-5 очков)`;
             fb.className = "feedback wrong";
+            triggerHaptic('error');
             addScore('id', -5);
           }
         };
@@ -1177,7 +1381,7 @@
       playIdentifyAudio();
     }
 
-    function repeatIdentify() { if (currentTargetInterval) playIdentifyAudio(); }
+    function repeatIdentify() { triggerHaptic('light'); if (currentTargetInterval) playIdentifyAudio(); }
 
     // 4. Определение аккордов
     let currentTargetChord = null;
@@ -1189,6 +1393,7 @@
     }
 
     function nextChord() {
+      triggerHaptic('light');
       document.getElementById('fb-chord').innerText = '';
       currentTargetChord = CHORDS[Math.floor(Math.random() * CHORDS.length)];
       
@@ -1210,10 +1415,12 @@
           if (opt.name === currentTargetChord.name) {
             fb.innerText = "Правильно! +10 очков 🎹";
             fb.className = "feedback correct";
+            triggerHaptic('success');
             addScore('chd', 10);
           } else {
             fb.innerText = `Ошибка! Это ${currentTargetChord.name} (-5 очков)`;
             fb.className = "feedback wrong";
+            triggerHaptic('error');
             addScore('chd', -5);
           }
         };
@@ -1223,20 +1430,47 @@
       playChordGameAudio();
     }
 
-    function repeatChord() { if (currentTargetChord) playChordGameAudio(); }
+    function repeatChord() { triggerHaptic('light'); if (currentTargetChord) playChordGameAudio(); }
 
-    // 5. Пропевание ноты
+    // 5. ПРОПЕВАНИЕ НОТЫ С ПОВТОРЕНИЕМ И УДЕРЖАНИЕМ 3 СЕКУНДЫ
     let isMicActive = false, micStream = null, pitchAnalyser = null, targetFreq = 261.63;
+    let holdDurationMs = 0;
+    let lastPitchTime = performance.now();
+    let isNoteCompleted = false;
+
+    function resetHoldVisuals() {
+      holdDurationMs = 0;
+      document.getElementById('hc1').className = 'hold-circle';
+      document.getElementById('hc2').className = 'hold-circle';
+      document.getElementById('hc3').className = 'hold-circle';
+    }
+
     function generateTargetNote() {
+      triggerHaptic('light');
       if (audioCtx.state === 'suspended') audioCtx.resume();
-      const midi = Math.floor(Math.random() * 24) + 48; 
+      isNoteCompleted = false;
+      resetHoldVisuals();
+
+      const midi = Math.floor(Math.random() * 24) + 48; // C3 - C5
       targetFreq = 440 * Math.pow(2, (midi - 69) / 12);
       const noteName = NOTE_NAMES[midi % 12] + Math.floor(midi / 12 - 1);
       document.getElementById('targetNoteDisplay').innerText = noteName;
+      document.getElementById('singStatus').innerText = "Слушайте эталон...";
+      document.getElementById('repeatNoteBtn').disabled = false;
+
       playTone(targetFreq, audioCtx.currentTime, 1.2, 'triangle');
     }
 
+    function repeatTargetNote() {
+      triggerHaptic('light');
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (targetFreq) {
+        playTone(targetFreq, audioCtx.currentTime, 1.2, 'triangle');
+      }
+    }
+
     async function toggleMic() {
+      triggerHaptic('medium');
       if (isMicActive) {
         stopMic();
       } else {
@@ -1250,6 +1484,7 @@
           document.getElementById('micBtn').innerText = "🛑 Остановить";
           document.getElementById('micBtn').style.background = "#ff3b30";
           document.getElementById('singStatus').innerText = "Слушаю вас...";
+          lastPitchTime = performance.now();
           updatePitchLoop();
         } catch (err) { alert("Нет доступа к микрофону"); }
       }
@@ -1262,29 +1497,60 @@
       document.getElementById('micBtn').style.background = "#34c759";
       document.getElementById('singStatus').innerText = "Микрофон выключен";
       document.getElementById('meterPointer').style.left = "50%";
+      resetHoldVisuals();
     }
 
     function updatePitchLoop() {
       if (!isMicActive) return;
+
+      const now = performance.now();
+      const dt = now - lastPitchTime;
+      lastPitchTime = now;
+
       const buf = new Float32Array(2048);
       pitchAnalyser.getFloatTimeDomainData(buf);
       const pitch = autoCorrelate(buf, audioCtx.sampleRate);
-      if (pitch !== -1) {
+
+      if (pitch !== -1 && !isNoteCompleted) {
         const cents = 1200 * Math.log2(pitch / targetFreq);
         let pointerPos = Math.max(0, Math.min(100, 50 + (cents / 2)));
         const pointer = document.getElementById('meterPointer');
         pointer.style.left = pointerPos + "%";
-        if (Math.abs(cents) < 15) {
+
+        // Если попадаем в точный порог +- 20 центов
+        if (Math.abs(cents) < 20) {
           pointer.style.background = "#4cd964";
-          document.getElementById('singStatus').innerText = "Идеально! ✨";
-        } else if (cents < 0) {
-          pointer.style.background = "#ffcc00";
-          document.getElementById('singStatus').innerText = "Ниже, спойте выше ⬆️";
+          holdDurationMs += dt;
+
+          if (holdDurationMs >= 1000) document.getElementById('hc1').className = 'hold-circle step-1';
+          if (holdDurationMs >= 2000) document.getElementById('hc2').className = 'hold-circle step-2';
+          if (holdDurationMs >= 3000) {
+            document.getElementById('hc3').className = 'hold-circle step-3';
+            isNoteCompleted = true;
+            document.getElementById('singStatus').innerText = "ОТЛИЧНО! 🎉 (+15 очков)";
+            triggerHaptic('success');
+            addScore('sing', 15);
+
+            setTimeout(() => {
+              generateTargetNote();
+            }, 1200);
+          } else {
+            document.getElementById('singStatus').innerText = "Удерживайте ноту! ✨";
+          }
         } else {
-          pointer.style.background = "#ffcc00";
-          document.getElementById('singStatus').innerText = "Выше, спойте ниже ⬇️";
+          resetHoldVisuals();
+          if (cents < 0) {
+            pointer.style.background = "#ffcc00";
+            document.getElementById('singStatus').innerText = "Ниже, спойте выше ⬆️";
+          } else {
+            pointer.style.background = "#ffcc00";
+            document.getElementById('singStatus').innerText = "Выше, спойте ниже ⬇️";
+          }
         }
+      } else if (!isNoteCompleted) {
+        resetHoldVisuals();
       }
+
       requestAnimationFrame(updatePitchLoop);
     }
 
@@ -1316,7 +1582,7 @@
       INTERVALS.forEach(i => {
         const item = document.createElement('div');
         item.className = 'wiki-item';
-        item.onclick = () => { if (audioCtx.state === 'suspended') audioCtx.resume(); playInterval(261.63, i.semitones, audioCtx.currentTime, 'triangle'); };
+        item.onclick = () => { triggerHaptic('light'); if (audioCtx.state === 'suspended') audioCtx.resume(); playInterval(261.63, i.semitones, audioCtx.currentTime, 'triangle'); };
         item.innerHTML = `<div class="wiki-title"><span>${i.name}</span> <span>🔊</span></div><div class="wiki-desc">Объем: <b>${i.semitones} полут.</b></div>`;
         container.appendChild(item);
       });
@@ -1329,12 +1595,13 @@
       CHORDS.forEach(c => {
         const item = document.createElement('div');
         item.className = 'wiki-item';
-        item.onclick = () => playChordAudio(261.63, c.offsets, 'triangle');
+        item.onclick = () => { triggerHaptic('light'); playChordAudio(261.63, c.offsets, 'triangle'); };
         item.innerHTML = `<div class="wiki-title"><span>${c.name}</span> <span>🔊</span></div><div class="wiki-desc"><b>Состав:</b> ${c.structure} (${c.desc})</div>`;
         container.appendChild(item);
       });
     }
 
+    buildPianoKeyboard();
     initWiki();
     updateScoreDisplays();
     fetchAllLeaderboards();
