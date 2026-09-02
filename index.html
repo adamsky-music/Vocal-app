@@ -162,21 +162,75 @@
       border: 1px solid rgba(255,255,255,0.1);
     }
 
+    /* МЕТРОНОМ И ВИЗУАЛИЗАЦИЯ МИКРОФОНА */
+    .metronome-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 14px 0;
+    }
+
+    .metro-circle {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 3px solid rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: bold;
+      color: var(--text-color);
+      transition: background 0.08s ease, transform 0.08s ease, border-color 0.08s ease;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+
+    .metro-circle.active-beat {
+      background: rgba(76, 217, 100, 0.35);
+      border-color: #4cd964;
+      color: #ffffff;
+      transform: scale(1.08);
+      box-shadow: 0 0 18px rgba(76, 217, 100, 0.6);
+    }
+
+    .metro-circle.accent-beat {
+      background: rgba(51, 144, 236, 0.4);
+      border-color: #3390ec;
+      color: #ffffff;
+      transform: scale(1.12);
+      box-shadow: 0 0 20px rgba(51, 144, 236, 0.7);
+    }
+
+    .mic-indicator-bar {
+      width: 100%;
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+
+    .mic-level-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent-color);
+      transition: width 0.05s ease-out;
+    }
+
     .tap-btn {
       background: var(--btn-color);
       color: var(--btn-text-color);
       border: none;
-      padding: 24px;
-      font-size: 20px;
+      padding: 16px;
+      font-size: 16px;
       font-weight: bold;
-      border-radius: 16px;
+      border-radius: 12px;
       width: 100%;
-      margin-top: 10px;
+      margin-top: 8px;
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
-
-    .tap-btn:active { transform: scale(0.97); }
 
     .leader-box {
       margin-top: 16px;
@@ -245,16 +299,21 @@
       </div>
       <h2>🥁 Ритмический тренажер</h2>
       <div id="rhythm-level-badge" class="level-badge">Уровень 1: Четверти и паузы</div>
-      <p>Прослушайте и повторите ритмический рисунок кнопкой TAP.</p>
+      <p>Прослушайте ритм, затем прохлопайте его в микрофон под визуальный метроном.</p>
       
       <div class="rhythm-display" id="rhythmNotations">𝄢 - - -</div>
 
+      <div class="metronome-box">
+        <div class="metro-circle" id="metroCircle">1</div>
+        <div class="mic-indicator-bar"><div class="mic-level-fill" id="micLevelFill"></div></div>
+      </div>
+
       <div class="grid-2">
-        <button class="btn btn-secondary" id="repeatRhythmBtn" onclick="repeatRhythm()" disabled>🔁 Послушать</button>
+        <button class="btn btn-secondary" id="repeatRhythmBtn" onclick="startRhythmFlow()" disabled>🔁 Послушать</button>
         <button class="btn" onclick="nextRhythm()">⏭ Новый ритм</button>
       </div>
 
-      <button class="tap-btn" id="tapBtn" onmousedown="handleTap()" touchstart="handleTap()" disabled>🥁 TAP</button>
+      <button class="tap-btn" id="tapBackupBtn" onmousedown="handleManualTap()" touchstart="handleManualTap()" style="display:none;">🖐 Тапнуть вручную (Запасной)</button>
 
       <div class="feedback" id="fb-rhythm"></div>
 
@@ -452,7 +511,6 @@
       updateScoreDisplays();
     }
 
-    // Сохранение рекорда в отдельную ветку
     async function saveScoreToFirebase(mode, uid, name, val) {
       if (!FIREBASE_DB_URL) return;
       try {
@@ -465,7 +523,6 @@
       } catch (e) { console.error("Score save error", e); }
     }
 
-    // Загрузка топа
     async function fetchLeaderboard(mode) {
       const containerMap = { rhythm: 'lb-rhythm', cmp: 'lb-compare', id: 'lb-identify', chd: 'lb-chords' };
       const container = document.getElementById(containerMap[mode]);
@@ -723,13 +780,19 @@
       el.classList.add('active');
     }
 
-    // ---------------- 1. РИТМИЧЕСКИЙ ТРЕНАЖЕР ----------------
+    // ---------------- 1. РИТМИЧЕСКИЙ ТРЕНАЖЕР (С МИКРОФОНОМ И ВИЗУАЛЬНЫМ МЕТРОНОМОМ) ----------------
     let currentRhythmPattern = [];
-    let userTapTimes = [];
-    let rhythmStartTime = 0;
-    let isRhythmListening = false;
+    let userDetectedClaps = [];
+    let rhythmRecordStartTime = 0;
+    let isRhythmMicActive = false;
 
-    // Генерация ритма по уровням сложностей
+    let rhythmMicStream = null;
+    let rhythmAnalyser = null;
+    let rhythmAnimFrame = null;
+    let lastClapTime = 0;
+
+    const Q_TIME = 0.75; // BPM 80 (750 мс на четверть)
+
     function generateRhythmPattern() {
       const s = scores.rhythm;
       let levelText = "";
@@ -787,63 +850,203 @@
     }
 
     function getPatternTimings(pattern) {
-      const qTime = 0.75;
       let timings = [];
       let currentTime = 0;
 
       pattern.forEach(item => {
         if (item.type === 'q') {
           timings.push(currentTime);
-          currentTime += qTime;
+          currentTime += Q_TIME;
         } else if (item.type === 'rest_q') {
-          currentTime += qTime;
+          currentTime += Q_TIME;
         } else if (item.type === 'e') {
           timings.push(currentTime);
-          timings.push(currentTime + qTime / 2);
-          currentTime += qTime;
+          timings.push(currentTime + Q_TIME / 2);
+          currentTime += Q_TIME;
         } else if (item.type === 'sixteen') {
           for (let k = 0; k < 4; k++) {
-            timings.push(currentTime + (k * qTime / 4));
+            timings.push(currentTime + (k * Q_TIME / 4));
           }
-          currentTime += qTime;
+          currentTime += Q_TIME;
         } else if (item.type === 'dotted_q') {
           timings.push(currentTime);
-          currentTime += qTime * 1.5;
+          currentTime += Q_TIME * 1.5;
         } else if (item.type === 'triplet') {
           for (let k = 0; k < 3; k++) {
-            timings.push(currentTime + (k * qTime / 3));
+            timings.push(currentTime + (k * Q_TIME / 3));
           }
-          currentTime += qTime;
+          currentTime += Q_TIME;
         } else if (item.type === 'rest_e') {
-          currentTime += qTime / 2;
+          currentTime += Q_TIME / 2;
         }
       });
 
-      return { timings, totalDuration: currentTime };
+      return { timings, totalDuration: 4 * Q_TIME };
     }
 
-    function playRhythmAudio() {
+    // Подсветка визуального метронома
+    function flashMetroCircle(text, isAccent = false) {
+      const circle = document.getElementById('metroCircle');
+      circle.innerText = text;
+      circle.className = isAccent ? "metro-circle accent-beat" : "metro-circle active-beat";
+      setTimeout(() => {
+        circle.className = "metro-circle";
+      }, 140);
+    }
+
+    // Запуск микрофона для съема хлопок
+    async function initRhythmMicrophone() {
+      if (rhythmMicStream) return true;
+      try {
+        rhythmMicStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const source = audioCtx.createMediaStreamSource(rhythmMicStream);
+        rhythmAnalyser = audioCtx.createAnalyser();
+        rhythmAnalyser.fftSize = 512;
+        source.connect(rhythmAnalyser);
+        return true;
+      } catch (err) {
+        document.getElementById('fb-rhythm').innerText = "Ошибка доступа к микрофону. Использован запасной кнопкой TAP.";
+        document.getElementById('fb-rhythm').className = "feedback wrong";
+        document.getElementById('tapBackupBtn').style.display = "block";
+        return false;
+      }
+    }
+
+    function processMicClaps() {
+      if (!isRhythmMicActive || !rhythmAnalyser) return;
+
+      const dataArray = new Uint8Array(rhythmAnalyser.frequencyBinCount);
+      rhythmAnalyser.getByteFrequencyData(dataArray);
+
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+      let avg = sum / dataArray.length;
+
+      const fillPercent = Math.min(100, (avg / 120) * 100);
+      document.getElementById('micLevelFill').style.width = fillPercent + "%";
+
+      const nowMs = performance.now();
+      if (avg > 70 && (nowMs - lastClapTime) > 130) {
+        lastClapTime = nowMs;
+        const clapRelTime = (nowMs - rhythmRecordStartTime) / 1000;
+        userDetectedClaps.push(clapRelTime);
+        flashMetroCircle("👏", true);
+      }
+
+      rhythmAnimFrame = requestAnimationFrame(processMicClaps);
+    }
+
+    // Полный цикл: Demonstration -> Precount -> Record with Visual Metronome
+    async function startRhythmFlow() {
       if (audioCtx.state === 'suspended') audioCtx.resume();
-      const now = audioCtx.currentTime + 0.1;
-      const { timings, totalDuration } = getPatternTimings(currentRhythmPattern);
+      document.getElementById('repeatRhythmBtn').disabled = true;
+      document.getElementById('fb-rhythm').innerText = "Слушайте образец...";
+      document.getElementById('fb-rhythm').className = "feedback";
+
+      const micOk = await initRhythmMicrophone();
+
+      // 1. Проигрывание эталона
       const drumType = document.getElementById('soundType-rhythm').value;
+      const { timings } = getPatternTimings(currentRhythmPattern);
+      const audioStartTime = audioCtx.currentTime + 0.1;
 
       timings.forEach(t => {
-        playDrumHit(now + t, drumType);
+        playDrumHit(audioStartTime + t, drumType);
       });
 
-      document.getElementById('tapBtn').disabled = true;
-      document.getElementById('repeatRhythmBtn').disabled = true;
+      // Ждем завершения эталона
+      setTimeout(() => {
+        document.getElementById('fb-rhythm').innerText = "Приготовьтесь! Отсчет 1-2-3-4...";
+        
+        // 2. Precount (4 визуальные вспышки)
+        let preCountStep = 1;
+        const precountInterval = setInterval(() => {
+          flashMetroCircle(preCountStep, preCountStep === 1);
+          preCountStep++;
+          if (preCountStep > 4) {
+            clearInterval(precountInterval);
+            runRhythmRecordingSection();
+          }
+        }, Q_TIME * 1000);
+
+      }, 3200);
+    }
+
+    // 3. Запись хлопок пользователя под визуальный метроном
+    function runRhythmRecordingSection() {
+      document.getElementById('fb-rhythm').innerText = "Хлопайте ритм!";
+      document.getElementById('fb-rhythm').className = "feedback correct";
+      userDetectedClaps = [];
+      rhythmRecordStartTime = performance.now();
+      isRhythmMicActive = true;
+
+      if (rhythmAnalyser) processMicClaps();
+
+      let currentBeat = 1;
+      const recordMetroInterval = setInterval(() => {
+        flashMetroCircle(currentBeat, currentBeat === 1);
+        currentBeat++;
+        if (currentBeat > 4) {
+          clearInterval(recordMetroInterval);
+        }
+      }, Q_TIME * 1000);
 
       setTimeout(() => {
-        document.getElementById('tapBtn').disabled = false;
+        isRhythmMicActive = false;
+        if (rhythmAnimFrame) cancelAnimationFrame(rhythmAnimFrame);
+        document.getElementById('micLevelFill').style.width = "0%";
         document.getElementById('repeatRhythmBtn').disabled = false;
-        document.getElementById('fb-rhythm').innerText = "Теперь натапайте ритм!";
-        document.getElementById('fb-rhythm').className = "feedback";
-        userTapTimes = [];
-        rhythmStartTime = performance.now();
-        isRhythmListening = true;
-      }, (totalDuration + 0.3) * 1000);
+        evaluateMicRhythm();
+      }, 4 * Q_TIME * 1000 + 300);
+    }
+
+    function evaluateMicRhythm() {
+      const { timings } = getPatternTimings(currentRhythmPattern);
+      const fb = document.getElementById('fb-rhythm');
+
+      if (userDetectedClaps.length === 0) {
+        fb.innerText = "Удары не обнаружены. Попробуйте хлопнуть громче ❌";
+        fb.className = "feedback wrong";
+        addScore('rhythm', -5);
+        return;
+      }
+
+      let matchedCount = 0;
+
+      timings.forEach(targetT => {
+        let minDiff = Infinity;
+        userDetectedClaps.forEach(clapT => {
+          const diff = Math.abs(clapT - targetT);
+          if (diff < minDiff) minDiff = diff;
+        });
+
+        if (minDiff < 0.22) {
+          matchedCount++;
+        }
+      });
+
+      const accuracy = matchedCount / timings.length;
+
+      if (accuracy >= 0.75) {
+        fb.innerText = `Отлично прохлопали! 🎉 (${matchedCount}/${timings.length} попаданий) +10 очков`;
+        fb.className = "feedback correct";
+        addScore('rhythm', 10);
+      } else {
+        fb.innerText = `Мимо ритма ❌ Попали ${matchedCount} из ${timings.length} нот (-5 очков)`;
+        fb.className = "feedback wrong";
+        addScore('rhythm', -5);
+      }
+    }
+
+    function handleManualTap(e) {
+      if (e) e.preventDefault();
+      if (!isRhythmMicActive) return;
+
+      const drumType = document.getElementById('soundType-rhythm').value;
+      playDrumHit(audioCtx.currentTime, drumType);
+      const tapRelTime = (performance.now() - rhythmRecordStartTime) / 1000;
+      userDetectedClaps.push(tapRelTime);
+      flashMetroCircle("🖐", true);
     }
 
     function nextRhythm() {
@@ -851,47 +1054,7 @@
       currentRhythmPattern = generateRhythmPattern();
       const notStr = currentRhythmPattern.map(p => p.notation).join(' ');
       document.getElementById('rhythmNotations').innerText = notStr;
-      playRhythmAudio();
-    }
-
-    function repeatRhythm() {
-      if (currentRhythmPattern.length > 0) playRhythmAudio();
-    }
-
-    function handleTap(e) {
-      if (e) e.preventDefault();
-      if (!isRhythmListening) return;
-
-      const drumType = document.getElementById('soundType-rhythm').value;
-      playDrumHit(audioCtx.currentTime, drumType);
-      const tapTime = (performance.now() - rhythmStartTime) / 1000;
-      userTapTimes.push(tapTime);
-
-      const { timings } = getPatternTimings(currentRhythmPattern);
-
-      if (userTapTimes.length >= timings.length) {
-        isRhythmListening = false;
-        evaluateRhythm(timings);
-      }
-    }
-
-    function evaluateRhythm(targetTimings) {
-      let totalDiff = 0;
-      for (let i = 0; i < targetTimings.length; i++) {
-        totalDiff += Math.abs(userTapTimes[i] - targetTimings[i]);
-      }
-      const avgDiff = totalDiff / targetTimings.length;
-      const fb = document.getElementById('fb-rhythm');
-
-      if (avgDiff < 0.14) {
-        fb.innerText = `Идеальное попадание! 🎉 (Погрешность ${Math.round(avgDiff*1000)}мс) +10 очков`;
-        fb.className = "feedback correct";
-        addScore('rhythm', 10);
-      } else {
-        fb.innerText = `Мимо ритма ❌ (Погрешность ${Math.round(avgDiff*1000)}мс) -5 очков`;
-        fb.className = "feedback wrong";
-        addScore('rhythm', -5);
-      }
+      startRhythmFlow();
     }
 
     // 2. Сравнение
