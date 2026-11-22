@@ -380,27 +380,64 @@
       document.addEventListener(evt, unlockAudioContext, { once: true });
     });
 
+    // Мастер-компрессор для чистого звучания аккордов без клиппинга
+    const masterCompressor = audioCtx.createDynamicsCompressor();
+    masterCompressor.threshold.setValueAtTime(-14, audioCtx.currentTime);
+    masterCompressor.knee.setValueAtTime(18, audioCtx.currentTime);
+    masterCompressor.ratio.setValueAtTime(4, audioCtx.currentTime);
+    masterCompressor.attack.setValueAtTime(0.005, audioCtx.currentTime);
+    masterCompressor.release.setValueAtTime(0.15, audioCtx.currentTime);
+    masterCompressor.connect(audioCtx.destination);
+
     let activeAudioNodes = [];
     function stopAllActiveAudio() {
       activeAudioNodes.forEach(node => { try { node.stop(); node.disconnect(); } catch (e) {} });
       activeAudioNodes = [];
     }
 
-    function playTone(freq, start, duration, soundType = 'triangle') {
+    // Реалистичный синтез фортепиано: гармоники, унисон-расстройка, динамический фильтр и ADSR рояля
+    function playTone(freq, start, duration) {
       unlockAudioContext();
       try {
-        const gain = audioCtx.createGain();
-        gain.connect(audioCtx.destination);
-        const osc = audioCtx.createOscillator();
-        osc.type = soundType;
-        osc.frequency.setValueAtTime(freq, start);
-        gain.gain.setValueAtTime(0, start);
-        gain.gain.linearRampToValueAtTime(0.25, start + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
-        osc.connect(gain);
-        osc.start(start);
-        osc.stop(start + duration);
-        activeAudioNodes.push(osc);
+        const noteOut = audioCtx.createGain();
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+
+        // Яркий удар молоточка и плавное потепление тембра
+        const brightFreq = Math.min(9000, freq * 7.5);
+        const warmFreq = Math.max(350, freq * 2.1);
+        filter.frequency.setValueAtTime(brightFreq, start);
+        filter.frequency.exponentialRampToValueAtTime(warmFreq, start + Math.min(0.45, duration * 0.6));
+        filter.Q.setValueAtTime(0.7, start);
+
+        // Огибающая фортепиано: быстрая атака -> спад к телу -> мягкий хвост
+        const totalDur = duration + 0.25;
+        noteOut.gain.setValueAtTime(0.0001, start);
+        noteOut.gain.linearRampToValueAtTime(0.28, start + 0.008);
+        noteOut.gain.exponentialRampToValueAtTime(0.14, start + Math.min(0.18, duration * 0.35));
+        noteOut.gain.exponentialRampToValueAtTime(0.0008, start + totalDur);
+
+        filter.connect(noteOut);
+        noteOut.connect(masterCompressor);
+
+        // Набор гармоник (меньше верхних обертонов для высоких нот)
+        const harmonics = freq > 520
+          ? [{ ratio: 1, type: 'triangle', gain: 0.75, detune: -2.5 }, { ratio: 1, type: 'sine', gain: 0.45, detune: 2.5 }, { ratio: 2, type: 'sine', gain: 0.22, detune: 0 }, { ratio: 3, type: 'sine', gain: 0.08, detune: 0 }]
+          : [{ ratio: 1, type: 'triangle', gain: 0.65, detune: -2.5 }, { ratio: 1, type: 'sine', gain: 0.45, detune: 2.5 }, { ratio: 2, type: 'sine', gain: 0.28, detune: 1.5 }, { ratio: 3, type: 'sine', gain: 0.14, detune: 0 }, { ratio: 4, type: 'sine', gain: 0.07, detune: 0 }, { ratio: 5, type: 'sine', gain: 0.03, detune: 0 }];
+
+        harmonics.forEach(h => {
+          const osc = audioCtx.createOscillator();
+          const hGain = audioCtx.createGain();
+          osc.type = h.type;
+          osc.frequency.setValueAtTime(freq * h.ratio, start);
+          if (h.detune) osc.detune.setValueAtTime(h.detune, start);
+          hGain.gain.setValueAtTime(h.gain, start);
+          osc.connect(hGain);
+          hGain.connect(filter);
+          osc.start(start);
+          osc.stop(start + totalDur);
+          activeAudioNodes.push(osc);
+        });
       } catch (e) {}
     }
 
@@ -590,19 +627,29 @@
     }
 
     // --- 2. ТЮНЕР ---
+    const TUNINGS = {
+      guitar:  [{ name: 'E2', midi: 40 }, { name: 'A2', midi: 45 }, { name: 'D3', midi: 50 }, { name: 'G3', midi: 55 }, { name: 'B3', midi: 59 }, { name: 'E4', midi: 64 }],
+      ukulele: [{ name: 'G4', midi: 67 }, { name: 'C4', midi: 60 }, { name: 'E4', midi: 64 }, { name: 'A4', midi: 69 }],
+      bass:    [{ name: 'E1', midi: 28 }, { name: 'A1', midi: 33 }, { name: 'D2', midi: 38 }, { name: 'G2', midi: 43 }]
+    };
+
     let isTunerActive = false, tunerStream = null, tunerAnalyser = null;
+    let smoothedTunerCents = null, lastTunerMidi = null, lastTunerHitTime = 0;
 
     async function toggleTunerMic() {
       triggerHaptic('medium');
       unlockAudioContext();
       if (isTunerActive) { stopTunerMic(); return; }
       try {
-        tunerStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        tunerStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
         const source = audioCtx.createMediaStreamSource(tunerStream);
         tunerAnalyser = audioCtx.createAnalyser();
-        tunerAnalyser.fftSize = 2048;
+        tunerAnalyser.fftSize = 4096;
         source.connect(tunerAnalyser);
         isTunerActive = true;
+        smoothedTunerCents = null;
+        lastTunerMidi = null;
+        lastTunerHitTime = 0;
         document.getElementById('tunerMicBtn').innerText = "🛑 Остановить";
         document.getElementById('tunerMicBtn').style.background = "#ff3b30";
         document.getElementById('tunerStatus').innerText = "Играйте ноту...";
@@ -613,6 +660,8 @@
     function stopTunerMic() {
       if (tunerStream) tunerStream.getTracks().forEach(t => t.stop());
       isTunerActive = false;
+      smoothedTunerCents = null;
+      lastTunerMidi = null;
       document.getElementById('tunerMicBtn').innerText = "🎙 Включить Тюнер";
       document.getElementById('tunerMicBtn').style.background = "#34c759";
       document.getElementById('tunerStatus').innerText = "Тюнер остановлен";
@@ -624,56 +673,130 @@
 
     function updateTunerLoop() {
       if (!isTunerActive) return;
-      const buf = new Float32Array(2048);
+      const buf = new Float32Array(tunerAnalyser.fftSize);
       tunerAnalyser.getFloatTimeDomainData(buf);
-      const pitch = autoCorrelate(buf, audioCtx.sampleRate);
-      if (pitch !== -1) {
-        document.getElementById('tunerFreq').innerText = pitch.toFixed(1) + " Гц";
-        const midi = Math.round(69 + 12 * Math.log2(pitch / 440));
-        const noteName = NOTE_NAMES[midi % 12] + Math.floor(midi / 12 - 1);
-        const idealFreq = 440 * Math.pow(2, (midi - 69) / 12);
-        const cents = 1200 * Math.log2(pitch / idealFreq);
-        document.getElementById('tunerNote').innerText = noteName;
-        document.getElementById('tunerPointer').style.left = Math.max(0, Math.min(100, 50 + cents)) + "%";
+      const pitch = autoCorrelate(buf, audioCtx.sampleRate, 38, 1200);
+      const now = performance.now();
 
-        // FIX 6: статус тюнера показывает отклонение в реальном времени
+      if (pitch !== -1) {
+        lastTunerHitTime = now;
+        const instrument = document.getElementById('tunerInstrument').value;
+        let targetMidi = Math.round(69 + 12 * Math.log2(pitch / 440));
+        let label = NOTE_NAMES[((targetMidi % 12) + 12) % 12] + Math.floor(targetMidi / 12 - 1);
+
+        // Для выбранного инструмента ищем ближайшую струну, если она в пределах 3.5 полутонов
+        if (instrument !== 'chromatic' && TUNINGS[instrument]) {
+          const exactMidi = 69 + 12 * Math.log2(pitch / 440);
+          let bestStr = null, minDiff = Infinity;
+          TUNINGS[instrument].forEach(s => {
+            const d = Math.abs(exactMidi - s.midi);
+            if (d < minDiff) { minDiff = d; bestStr = s; }
+          });
+          if (bestStr && minDiff <= 3.5) {
+            targetMidi = bestStr.midi;
+            label = bestStr.name;
+          }
+        }
+
+        // Гистерезис смены ноты, чтобы на границе не мигала
+        if (lastTunerMidi !== null && lastTunerMidi !== targetMidi) {
+          const prevIdeal = 440 * Math.pow(2, (lastTunerMidi - 69) / 12);
+          const prevCents = Math.abs(1200 * Math.log2(pitch / prevIdeal));
+          if (prevCents < 58) {
+            targetMidi = lastTunerMidi;
+            label = NOTE_NAMES[((targetMidi % 12) + 12) % 12] + Math.floor(targetMidi / 12 - 1);
+          } else {
+            smoothedTunerCents = null;
+          }
+        }
+        lastTunerMidi = targetMidi;
+
+        const idealFreq = 440 * Math.pow(2, (targetMidi - 69) / 12);
+        const rawCents = 1200 * Math.log2(pitch / idealFreq);
+        smoothedTunerCents = smoothedTunerCents === null ? rawCents : smoothedTunerCents * 0.78 + rawCents * 0.22;
+
+        document.getElementById('tunerFreq').innerText = pitch.toFixed(1) + " Гц";
+        document.getElementById('tunerNote').innerText = label;
+        document.getElementById('tunerPointer').style.left = Math.max(0, Math.min(100, 50 + smoothedTunerCents)) + "%";
+
         const pointer = document.getElementById('tunerPointer');
         const statusEl = document.getElementById('tunerStatus');
-        if (Math.abs(cents) <= 8) {
+        if (Math.abs(smoothedTunerCents) <= 10) {
           statusEl.innerText = "✅ В строе!";
           pointer.style.background = "#4cd964";
-        } else if (cents > 0) {
-          statusEl.innerText = `⬆️ Выше на ${Math.round(cents)} центов`;
+        } else if (smoothedTunerCents > 0) {
+          statusEl.innerText = `⬆️ Выше на ${Math.round(smoothedTunerCents)} ц.`;
           pointer.style.background = "#ff9500";
         } else {
-          statusEl.innerText = `⬇️ Ниже на ${Math.round(Math.abs(cents))} центов`;
+          statusEl.innerText = `⬇️ Ниже на ${Math.round(Math.abs(smoothedTunerCents))} ц.`;
           pointer.style.background = "#ff9500";
         }
-      } else {
-        // Тишина — сбрасываем статус
+      } else if (now - lastTunerHitTime > 450) {
+        smoothedTunerCents = null;
         document.getElementById('tunerStatus').innerText = "Играйте ноту...";
         document.getElementById('tunerPointer').style.background = "var(--btn-color)";
       }
       requestAnimationFrame(updateTunerLoop);
     }
 
-    function autoCorrelate(buf, sampleRate) {
-      let SIZE = buf.length, rms = 0;
+    // Улучшенная автокорреляция с проверкой ясности тона и параболической интерполяцией
+    function autoCorrelate(buf, sampleRate, minFreq = 65, maxFreq = 1100) {
+      const SIZE = buf.length;
+      let rms = 0;
       for (let i = 0; i < SIZE; i++) rms += buf[i] * buf[i];
-      if (Math.sqrt(rms / SIZE) < 0.01) return -1;
-      let r1 = 0, r2 = SIZE - 1, thres = 0.2;
-      for (let i = 0; i < SIZE / 2; i++) if (Math.abs(buf[i]) < thres) { r1 = i; break; }
-      for (let i = 1; i < SIZE / 2; i++) if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; }
-      buf = buf.slice(r1, r2); SIZE = buf.length;
-      if (SIZE === 0) return -1;
-      let c = new Array(SIZE).fill(0);
-      for (let i = 0; i < SIZE; i++) for (let j = 0; j < SIZE - i; j++) c[i] += buf[j] * buf[j + i];
-      let d = 0;
-      while (d < SIZE - 1 && c[d] > c[d + 1]) d++;
-      let maxval = -1, maxpos = -1;
-      for (let i = d; i < SIZE; i++) if (c[i] > maxval) { maxval = c[i]; maxpos = i; }
-      if (maxpos <= 0) return -1;
-      return sampleRate / maxpos;
+      rms = Math.sqrt(rms / SIZE);
+      if (rms < 0.015) return -1;
+
+      const minLag = Math.max(2, Math.floor(sampleRate / maxFreq));
+      const maxLag = Math.min(Math.floor(SIZE / 2), Math.floor(sampleRate / minFreq));
+      if (maxLag <= minLag) return -1;
+
+      let bestLag = -1;
+      let bestCorr = 0;
+      const corr = new Float32Array(maxLag + 2);
+
+      for (let lag = minLag; lag <= maxLag + 1; lag++) {
+        let sum = 0, normA = 0, normB = 0;
+        const limit = SIZE - lag;
+        for (let i = 0; i < limit; i++) {
+          const a = buf[i];
+          const b = buf[i + lag];
+          sum += a * b;
+          normA += a * a;
+          normB += b * b;
+        }
+        const denom = Math.sqrt(normA * normB);
+        corr[lag] = denom > 0 ? sum / denom : 0;
+      }
+
+      // Первый достаточно высокий локальный максимум (защита от октавной ошибки вниз)
+      for (let lag = minLag + 1; lag < maxLag; lag++) {
+        if (corr[lag] > 0.78 && corr[lag] >= corr[lag - 1] && corr[lag] >= corr[lag + 1]) {
+          bestLag = lag;
+          bestCorr = corr[lag];
+          break;
+        }
+      }
+
+      if (bestLag === -1) {
+        for (let lag = minLag + 1; lag < maxLag; lag++) {
+          if (corr[lag] > bestCorr) {
+            bestCorr = corr[lag];
+            bestLag = lag;
+          }
+        }
+        if (bestCorr < 0.72) return -1;
+      }
+
+      // Параболическая интерполяция для суб-сэмпловой точности
+      const y1 = corr[bestLag - 1] || 0;
+      const y2 = corr[bestLag];
+      const y3 = corr[bestLag + 1] || 0;
+      const denom = 2 * (y1 - 2 * y2 + y3);
+      const shift = denom !== 0 ? (y1 - y3) / denom : 0;
+      const refinedLag = bestLag + Math.max(-0.5, Math.min(0.5, shift));
+
+      return sampleRate / refinedLag;
     }
 
     // --- 3. ИНТЕРВАЛЫ ---
@@ -812,21 +935,25 @@
     }
 
     // =====================================================
-    // FIX 1: ПЕНИЕ — флаг singScored предотвращает
-    // многократное начисление очков за одно удержание
+    // 5. ПЕНИЕ — сглаженный детектор питча, допуск ±35 ц.,
+    // мягкий спад прогресса вместо мгновенного обнуления
     // =====================================================
     let isMicActive = false, micStream = null, pitchAnalyser = null;
     let targetFreq = 261.63;
     let holdDurationMs = 0, lastPitchTime = performance.now();
-    let singScored = false; // FIX 1
+    let singScored = false;
+    let smoothedSingCents = null, lastSingHitTime = 0;
 
     function generateTargetNote() {
       triggerHaptic('light');
       unlockAudioContext();
       stopAllActiveAudio();
       holdDurationMs = 0;
-      singScored = false; // FIX 1: сбрасываем флаг для новой ноты
+      singScored = false;
+      smoothedSingCents = null;
       resetHoldCircles();
+      document.getElementById('meterPointer').style.left = "50%";
+      document.getElementById('meterPointer').style.background = "var(--btn-color)";
       document.getElementById('singStatus').innerText = isMicActive ? "Слушаю выпевание..." : "Микрофон выключен";
       const range = document.getElementById('singOctaveRange').value;
       const startMidi = range === 'male' ? 48 : 60;
@@ -848,17 +975,25 @@
       document.getElementById('hc3').className = 'hold-circle';
     }
 
+    function updateHoldCirclesUI(ms) {
+      document.getElementById('hc1').className = ms >= 800  ? 'hold-circle step-1' : 'hold-circle';
+      document.getElementById('hc2').className = ms >= 1600 ? 'hold-circle step-2' : 'hold-circle';
+      document.getElementById('hc3').className = ms >= 2500 ? 'hold-circle step-3' : 'hold-circle';
+    }
+
     async function toggleMic() {
       triggerHaptic('medium');
       unlockAudioContext();
       if (isMicActive) { stopMic(); return; }
       try {
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
         const source = audioCtx.createMediaStreamSource(micStream);
         pitchAnalyser = audioCtx.createAnalyser();
-        pitchAnalyser.fftSize = 2048;
+        pitchAnalyser.fftSize = 4096;
         source.connect(pitchAnalyser);
         isMicActive = true;
+        smoothedSingCents = null;
+        lastSingHitTime = 0;
         document.getElementById('micBtn').innerText = "🛑 Остановить";
         document.getElementById('micBtn').style.background = "#ff3b30";
         document.getElementById('singStatus').innerText = "Слушаю выпевание...";
@@ -870,10 +1005,12 @@
     function stopMic() {
       if (micStream) micStream.getTracks().forEach(t => t.stop());
       isMicActive = false;
+      smoothedSingCents = null;
       document.getElementById('micBtn').innerText = "🎤 Включить микрофон";
       document.getElementById('micBtn').style.background = "#34c759";
       document.getElementById('singStatus').innerText = "Микрофон выключен";
       document.getElementById('meterPointer').style.left = "50%";
+      document.getElementById('meterPointer').style.background = "var(--btn-color)";
       resetHoldCircles();
       holdDurationMs = 0;
       singScored = false;
@@ -882,37 +1019,65 @@
     function updatePitchLoop() {
       if (!isMicActive) return;
       const now = performance.now();
-      const dt = now - lastPitchTime;
+      const dt = Math.min(100, now - lastPitchTime);
       lastPitchTime = now;
 
-      const buf = new Float32Array(2048);
+      const buf = new Float32Array(pitchAnalyser.fftSize);
       pitchAnalyser.getFloatTimeDomainData(buf);
-      const pitch = autoCorrelate(buf, audioCtx.sampleRate);
+      const pitch = autoCorrelate(buf, audioCtx.sampleRate, 75, 900);
+
+      const pointer = document.getElementById('meterPointer');
+      const statusEl = document.getElementById('singStatus');
 
       if (pitch !== -1) {
-        const cents = 1200 * Math.log2(pitch / targetFreq);
-        let pos = Math.max(0, Math.min(100, 50 + cents / 2));
-        document.getElementById('meterPointer').style.left = pos + "%";
+        lastSingHitTime = now;
+        const rawCents = 1200 * Math.log2(pitch / targetFreq);
 
-        if (Math.abs(cents) < 20) {
-          if (!singScored) { // FIX 1: только если ещё не засчитано
+        // Отсеиваем одиночные октавные скачки, если уже есть стабильное значение
+        if (smoothedSingCents === null || Math.abs(rawCents - smoothedSingCents) < 450) {
+          smoothedSingCents = smoothedSingCents === null ? rawCents : smoothedSingCents * 0.78 + rawCents * 0.22;
+        } else {
+          smoothedSingCents = smoothedSingCents * 0.92 + rawCents * 0.08;
+        }
+
+        const pos = Math.max(0, Math.min(100, 50 + smoothedSingCents / 3));
+        pointer.style.left = pos + "%";
+
+        const sungMidi = Math.round(69 + 12 * Math.log2(pitch / 440));
+        const sungNote = NOTE_NAMES[((sungMidi % 12) + 12) % 12] + Math.floor(sungMidi / 12 - 1);
+
+        if (!singScored) {
+          if (Math.abs(smoothedSingCents) <= 35) {
+            pointer.style.background = "#4cd964";
             holdDurationMs += dt;
-            if (holdDurationMs >= 1000) document.getElementById('hc1').className = 'hold-circle step-1';
-            if (holdDurationMs >= 2000) document.getElementById('hc2').className = 'hold-circle step-2';
-            if (holdDurationMs >= 3000) {
-              singScored = true; // FIX 1: устанавливаем флаг — больше не засчитывать
-              document.getElementById('hc3').className = 'hold-circle step-3';
-              document.getElementById('singStatus').innerText = "ОТЛИЧНО! 🎉 +15";
+            updateHoldCirclesUI(holdDurationMs);
+            statusEl.innerText = `✅ Точно (${sungNote})! Держите...`;
+
+            if (holdDurationMs >= 2500) {
+              singScored = true;
+              statusEl.innerText = "ОТЛИЧНО! 🎉 +15";
               addScore('sing', 15);
               triggerHaptic('success');
               setTimeout(generateTargetNote, 1200);
             }
+          } else {
+            pointer.style.background = "#ff9500";
+            // Плавный спад прогресса при небольшом отклонении вместо мгновенного сброса
+            holdDurationMs = Math.max(0, holdDurationMs - dt * 0.8);
+            updateHoldCirclesUI(holdDurationMs);
+            statusEl.innerText = smoothedSingCents > 0
+              ? `⬇️ Чуть ниже (сейчас ${sungNote})`
+              : `⬆️ Чуть выше (сейчас ${sungNote})`;
           }
-        } else {
-          if (!singScored) { // FIX 1: не сбрасываем прогресс после засчитанного результата
-            holdDurationMs = 0;
-            resetHoldCircles();
-          }
+        }
+      } else if (!singScored && now - lastSingHitTime > 300) {
+        // Если пауза длиннее 300 мс — плавно уменьшаем прогресс
+        holdDurationMs = Math.max(0, holdDurationMs - dt * 0.6);
+        updateHoldCirclesUI(holdDurationMs);
+        if (now - lastSingHitTime > 600) {
+          smoothedSingCents = null;
+          pointer.style.background = "var(--btn-color)";
+          statusEl.innerText = "Спойте ноту...";
         }
       }
       requestAnimationFrame(updatePitchLoop);
