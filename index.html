@@ -380,13 +380,18 @@
       document.addEventListener(evt, unlockAudioContext, { once: true });
     });
 
-    // Мастер-компрессор для чистого звучания аккордов без клиппинга
+    // Мастер-буст + лимитер для громкого и чистого звучания на мобильных динамиках без клиппинга
+    const masterGain = audioCtx.createGain();
+    masterGain.gain.setValueAtTime(2.6, audioCtx.currentTime);
+
     const masterCompressor = audioCtx.createDynamicsCompressor();
-    masterCompressor.threshold.setValueAtTime(-14, audioCtx.currentTime);
-    masterCompressor.knee.setValueAtTime(18, audioCtx.currentTime);
-    masterCompressor.ratio.setValueAtTime(4, audioCtx.currentTime);
-    masterCompressor.attack.setValueAtTime(0.005, audioCtx.currentTime);
-    masterCompressor.release.setValueAtTime(0.15, audioCtx.currentTime);
+    masterCompressor.threshold.setValueAtTime(-4, audioCtx.currentTime);
+    masterCompressor.knee.setValueAtTime(6, audioCtx.currentTime);
+    masterCompressor.ratio.setValueAtTime(12, audioCtx.currentTime);
+    masterCompressor.attack.setValueAtTime(0.002, audioCtx.currentTime);
+    masterCompressor.release.setValueAtTime(0.12, audioCtx.currentTime);
+
+    masterGain.connect(masterCompressor);
     masterCompressor.connect(audioCtx.destination);
 
     let activeAudioNodes = [];
@@ -403,22 +408,22 @@
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
 
-        // Яркий удар молоточка и плавное потепление тембра
-        const brightFreq = Math.min(9000, freq * 7.5);
-        const warmFreq = Math.max(350, freq * 2.1);
+        // Яркий удар молоточка и тёплое тело (достаточно яркое для динамиков телефона)
+        const brightFreq = Math.min(10000, freq * 8.5);
+        const warmFreq = Math.max(600, freq * 3.0);
         filter.frequency.setValueAtTime(brightFreq, start);
         filter.frequency.exponentialRampToValueAtTime(warmFreq, start + Math.min(0.45, duration * 0.6));
         filter.Q.setValueAtTime(0.7, start);
 
-        // Огибающая фортепиано: быстрая атака -> спад к телу -> мягкий хвост
+        // Огибающая фортепиано: быстрая атака -> плотный сустейн -> мягкий хвост
         const totalDur = duration + 0.25;
         noteOut.gain.setValueAtTime(0.0001, start);
-        noteOut.gain.linearRampToValueAtTime(0.28, start + 0.008);
-        noteOut.gain.exponentialRampToValueAtTime(0.14, start + Math.min(0.18, duration * 0.35));
-        noteOut.gain.exponentialRampToValueAtTime(0.0008, start + totalDur);
+        noteOut.gain.linearRampToValueAtTime(0.65, start + 0.008);
+        noteOut.gain.exponentialRampToValueAtTime(0.38, start + Math.min(0.2, duration * 0.35));
+        noteOut.gain.exponentialRampToValueAtTime(0.001, start + totalDur);
 
         filter.connect(noteOut);
-        noteOut.connect(masterCompressor);
+        noteOut.connect(masterGain);
 
         // Набор гармоник (меньше верхних обертонов для высоких нот)
         const harmonics = freq > 520
